@@ -30,7 +30,6 @@ import {
   LogOut,
   Loader2,
   Trash2,
-  ShieldAlert,
   Edit3,
   RefreshCw,
   Link as LinkIcon
@@ -108,7 +107,7 @@ export function TemplatePortal() {
 
   // Filters & Search
   const [query, setQuery] = useState("")
-  const [filtersOpen, setFiltersOpen] = useState(true)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [filters, setFilters] = useState({
     dltTemplateId: "",
     name: "",
@@ -251,12 +250,12 @@ export function TemplatePortal() {
 
   // Initial load
   useEffect(() => {
-    if (!authChecking && user) {
+    if (mounted && user) {
       fetchOverview()
       fetchFilterOptions()
       fetchTemplates()
     }
-  }, [authChecking, user, fetchOverview, fetchFilterOptions, fetchTemplates])
+  }, [mounted, user, fetchOverview, fetchFilterOptions, fetchTemplates])
 
   // Filter actions
   const applyFilters = () => {
@@ -504,21 +503,30 @@ export function TemplatePortal() {
     <div className="min-h-screen bg-[#f7f8f6] text-[#232822]">
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-[238px] flex-col border-r border-[#e8ebe6] bg-white transition-transform md:translate-x-0 ${
-          mobileNav ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-30 flex w-[238px] flex-col border-r border-[#e8ebe6] bg-white transition-transform duration-200 md:translate-x-0 ${
+          mobileNav ? "translate-x-0 shadow-2xl" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-[72px] items-center gap-3 border-b border-[#edf0ec] px-5">
-          <div className="flex size-9 items-center justify-center rounded-sm bg-[#1d5c3b] text-[16px] font-bold tracking-tight text-white">
-            IS
+        <div className="flex h-[64px] sm:h-[72px] items-center justify-between border-b border-[#edf0ec] px-4 sm:px-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 sm:size-9 items-center justify-center rounded-sm bg-[#1d5c3b] text-[15px] font-bold tracking-tight text-white">
+              IS
+            </div>
+            <div>
+              <div className="text-[12px] font-semibold tracking-[.01em]">INDIA SHELTER</div>
+              <div className="text-[9px] sm:text-[10px] text-[#848b82]">FINANCE CORPORATION</div>
+            </div>
           </div>
-          <div>
-            <div className="text-[12px] font-semibold tracking-[.01em]">INDIA SHELTER</div>
-            <div className="mt-0.5 text-[10px] text-[#848b82]">FINANCE CORPORATION</div>
-          </div>
+          <button
+            onClick={() => setMobileNav(false)}
+            aria-label="Close menu"
+            className="rounded p-1 text-[#788075] hover:bg-[#f2f4f1] md:hidden"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="px-4 pt-6">
+        <div className="px-3 sm:px-4 pt-5">
           <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[.12em] text-[#a2a89f]">
             Workspace
           </p>
@@ -534,7 +542,7 @@ export function TemplatePortal() {
                 }`}
               >
                 <Icon size={16} />
-                {label}
+                <span className="flex-1 truncate">{label}</span>
                 {label === "Template Explorer" && (
                   <span className="ml-auto rounded-sm bg-white px-1.5 py-0.5 text-[10px] text-[#687368] border border-[#e2e7e0]">
                     {pagination.totalRecords}
@@ -545,12 +553,15 @@ export function TemplatePortal() {
           </nav>
         </div>
 
-        <div className="mt-7 px-4">
+        <div className="mt-6 px-3 sm:px-4">
           <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[.12em] text-[#a2a89f]">
             Manage
           </p>
           <button
-            onClick={() => setModal("import")}
+            onClick={() => {
+              setModal("import")
+              setMobileNav(false)
+            }}
             className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-[13px] text-[#636b61] hover:bg-[#f5f7f4]"
           >
             <Upload size={16} /> Bulk Import
@@ -566,7 +577,7 @@ export function TemplatePortal() {
         </div>
 
         {/* Current Employee Profile Pill */}
-        <div className="mt-auto p-4">
+        <div className="mt-auto p-3 sm:p-4">
           <div className="rounded-md border border-[#e9ece7] bg-[#fafbf9] p-3">
             <div className="flex items-center gap-2">
               <div className="flex size-7 items-center justify-center rounded-full bg-[#e6eee8] text-[10px] font-semibold text-[#376447]">
@@ -574,7 +585,7 @@ export function TemplatePortal() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[11px] font-medium text-[#252c23]">{user?.name || "Employee"}</p>
-                <p className="text-[10px] text-[#92988f]">
+                <p className="truncate text-[10px] text-[#92988f]">
                   {user?.role === "ADMIN" ? "Administrator" : "Employee"} · {user?.employeeId}
                 </p>
               </div>
@@ -582,42 +593,43 @@ export function TemplatePortal() {
                 aria-label="Sign out"
                 onClick={handleLogout}
                 title="Sign out"
-                className="ml-auto text-[#8b9289] hover:text-[#b44e3e]"
+                className="ml-auto p-1 text-[#8b9289] hover:text-[#b44e3e]"
               >
                 <LogOut size={14} />
               </button>
             </div>
           </div>
-          <p className="mt-3 px-1 text-[10px] text-[#a1a79f]">India Shelter Finance · Live DB</p>
+          <p className="mt-2.5 px-1 text-[10px] text-[#a1a79f]">India Shelter Finance · Live DB</p>
         </div>
       </aside>
 
+      {/* Mobile Backdrop */}
       {mobileNav && (
         <button
           aria-label="Close navigation"
-          className="fixed inset-0 z-20 bg-black/20 md:hidden"
+          className="fixed inset-0 z-20 bg-black/40 backdrop-blur-xs md:hidden"
           onClick={() => setMobileNav(false)}
         />
       )}
 
       {/* Main Container */}
       <div className="min-h-screen md:pl-[238px]">
-        {/* Header */}
-        <header className="sticky top-0 z-10 flex h-[64px] items-center justify-between border-b border-[#e8ebe6] bg-white/95 px-4 backdrop-blur sm:px-7">
-          <div className="flex items-center gap-3">
+        {/* Responsive Sticky Header */}
+        <header className="sticky top-0 z-10 flex h-[60px] sm:h-[64px] items-center justify-between border-b border-[#e8ebe6] bg-white/95 px-3.5 sm:px-6 backdrop-blur">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
-              className="text-[#667064] md:hidden"
-              aria-label="Open navigation"
+              className="flex size-9 items-center justify-center rounded-md border border-[#e7ebe5] text-[#555f53] md:hidden hover:bg-[#f6f8f5]"
+              aria-label="Open navigation menu"
               onClick={() => setMobileNav(true)}
             >
-              <Menu size={19} />
+              <Menu size={18} />
             </button>
-            <div className="hidden text-[11px] text-[#9ba198] sm:block">
+            <div className="hidden text-[11px] text-[#9ba198] sm:block truncate">
               Workspace <span className="mx-2 text-[#c6cbc4]">/</span>
             </div>
-            <h1 className="text-[13px] font-semibold">{page}</h1>
+            <h1 className="text-[13px] sm:text-[14px] font-semibold truncate">{page}</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               title="Refresh templates"
               onClick={() => {
@@ -632,14 +644,17 @@ export function TemplatePortal() {
             <button
               aria-label="Notifications"
               onClick={() => notify("All systems operational. Database connected.")}
-              className="relative flex size-8 items-center justify-center rounded-md border border-[#eceeea] text-[#626a60]"
+              className="relative flex size-8 items-center justify-center rounded-md border border-[#eceeea] text-[#626a60] hover:bg-[#f6f8f5]"
             >
               <Bell size={15} />
               <i className="absolute right-[7px] top-[6px] size-1.5 rounded-full bg-[#468b57]" />
             </button>
-            <div className="hidden h-6 w-px bg-[#e9ece7] sm:block" />
-            <button onClick={() => chooseNav("Settings")} className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-full bg-[#e7eee8] text-[10px] font-semibold text-[#376447]">
+            <div className="hidden h-5 w-px bg-[#e9ece7] sm:block" />
+            <button
+              onClick={() => chooseNav("Settings")}
+              className="flex items-center gap-1.5 rounded-full p-0.5 hover:bg-[#f5f7f4]"
+            >
+              <div className="flex size-7 sm:size-8 items-center justify-center rounded-full bg-[#e7eee8] text-[10px] font-semibold text-[#376447]">
                 {user?.name?.slice(0, 2).toUpperCase() || "IS"}
               </div>
               <ChevronDown size={13} className="hidden text-[#8b9289] sm:block" />
@@ -647,41 +662,43 @@ export function TemplatePortal() {
           </div>
         </header>
 
-        {/* Content Area */}
-        <main className="mx-auto max-w-[1500px] px-4 py-6 sm:px-7 sm:py-7">
+        {/* Content Area with Fluid Responsive Padding */}
+        <main className="mx-auto max-w-[1500px] px-3.5 py-4 sm:px-6 sm:py-6 lg:py-7">
           {page === "Template Explorer" ? (
             <>
               {/* Explorer Header */}
-              <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+              <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <div className="mb-1.5 flex items-center gap-2 text-[11px] text-[#7e877c]">
+                  <div className="mb-1 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-[#7e877c]">
                     <span>Workspace</span>
                     <span>/</span>
                     <span className="text-[#435044]">Templates</span>
                   </div>
-                  <h2 className="text-[23px] font-semibold tracking-[-.035em]">SMS Template Explorer</h2>
-                  <p className="mt-1 text-[12px] text-[#7b8379]">
+                  <h2 className="text-[20px] sm:text-[23px] font-semibold tracking-[-.035em]">
+                    SMS Template Explorer
+                  </h2>
+                  <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
                     Search, filter, review and maintain official DLT SMS templates.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
                   <button
                     onClick={() => setModal("import")}
-                    className="flex h-9 items-center gap-2 rounded-md border border-[#dfe4dd] bg-white px-3 text-[12px] font-medium text-[#475046] hover:bg-[#fafbf9]"
+                    className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[#dfe4dd] bg-white px-3 text-[12px] font-medium text-[#475046] hover:bg-[#fafbf9]"
                   >
                     <Upload size={14} /> Import
                   </button>
                   <button
                     onClick={openAddModal}
-                    className="flex h-9 items-center gap-2 rounded-md bg-[#205c3c] px-3.5 text-[12px] font-medium text-white shadow-xs hover:bg-[#174b30]"
+                    className="flex h-9 items-center justify-center gap-1.5 rounded-md bg-[#205c3c] px-3.5 text-[12px] font-medium text-white shadow-xs hover:bg-[#174b30]"
                   >
                     <Plus size={15} /> Add template
                   </button>
                 </div>
               </div>
 
-              {/* Dynamic Stats Row */}
-              <section className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {/* Dynamic Stats Row - 2 cols on mobile, 4 on desktop */}
+              <section className="mb-4 sm:mb-5 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
                 <Stat
                   label="Total templates"
                   value={stats.totalTemplates.toString()}
@@ -691,27 +708,27 @@ export function TemplatePortal() {
                 <Stat
                   label="Active templates"
                   value={stats.activeTemplates.toString()}
-                  note="Available for broadcast"
+                  note="Ready to broadcast"
                   icon={Check}
                 />
                 <Stat
                   label="Adhoc templates"
                   value={stats.adhocTemplates.toString()}
-                  note="Event-triggered notices"
+                  note="Event notices"
                   icon={CalendarDays}
                 />
                 <Stat
                   label="With attachments"
                   value={stats.templatesWithAttachments.toString()}
-                  note="Supporting links configured"
+                  note="Supporting URLs"
                   icon={Paperclip}
                 />
               </section>
 
               {/* Search & Filter Card */}
               <section className="overflow-hidden rounded-lg border border-[#e5e9e3] bg-white shadow-[0_1px_2px_rgba(20,32,20,.025)]">
-                <div className="border-b border-[#edf0ec] p-4 sm:px-5 sm:py-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="border-b border-[#edf0ec] p-3.5 sm:p-5">
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
                     <div className="relative flex-1">
                       <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#929a90]" />
                       <input
@@ -724,8 +741,8 @@ export function TemplatePortal() {
                           if (e.key === "Enter") fetchTemplates()
                           if (e.key === "Escape") setQuery("")
                         }}
-                        placeholder="Search by Template ID, name, content, owner or remarks..."
-                        className={`${cnInput} h-10 pl-9 pr-9`}
+                        placeholder="Search by ID, name, content, owner..."
+                        className={`${cnInput} h-10 pl-9 pr-9 text-xs sm:text-sm`}
                       />
                       {query && (
                         <button
@@ -742,28 +759,28 @@ export function TemplatePortal() {
                     </div>
                     <button
                       onClick={() => setFiltersOpen(!filtersOpen)}
-                      className={`flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border px-3 text-[12px] font-medium ${
+                      className={`flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border px-3 text-[12px] font-medium transition ${
                         filtersOpen
                           ? "border-[#cbd9ce] bg-[#f1f6f2] text-[#265c3d]"
                           : "border-[#e2e6e0] text-[#555e54] hover:bg-[#fafbf9]"
                       }`}
                     >
                       <SlidersHorizontal size={14} /> Advanced filters
-                      <span className="rounded-full bg-white px-1.5 text-[10px] border border-[#d2dcd3]">
+                      <span className="rounded-full bg-white px-1.5 py-0.2 text-[10px] font-semibold border border-[#d2dcd3]">
                         {Object.values(appliedFilters).filter(Boolean).length}
                       </span>
                     </button>
                   </div>
 
                   {filtersOpen && (
-                    <div className="mt-4 rounded-md border border-[#edf0ec] bg-[#fafbf9] p-3 sm:p-4">
-                      <div className="mb-3 flex items-center justify-between">
+                    <div className="mt-3.5 rounded-md border border-[#edf0ec] bg-[#fafbf9] p-3 sm:p-4">
+                      <div className="mb-2.5 flex items-center justify-between">
                         <span className="text-[11px] font-semibold text-[#485146]">Refine database records</span>
                         <button onClick={resetFilters} className="text-[11px] text-[#687467] underline-offset-2 hover:underline">
                           Reset all
                         </button>
                       </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                         <FilterInput
                           label="DLT Template ID"
                           value={filters.dltTemplateId}
@@ -815,14 +832,14 @@ export function TemplatePortal() {
                           onChange={(v) => setFilters({ ...filters, updatedTo: v })}
                         />
                       </div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="mt-3.5 flex flex-col-reverse gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-[10px] text-[#90978e]">
-                          Filters are evaluated on the backend PostgreSQL server with case-insensitive partial matching.
+                          Filters are evaluated on PostgreSQL server with case-insensitive partial matching.
                         </p>
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-2 gap-2 sm:flex">
                           <button
                             onClick={resetFilters}
-                            className="h-8 rounded-md px-3 text-[11px] font-medium text-[#60695e] hover:bg-[#eef1ed]"
+                            className="h-8 rounded-md border border-[#e0e5de] bg-white px-3 text-[11px] font-medium text-[#60695e] hover:bg-[#eef1ed]"
                           >
                             Clear all
                           </button>
@@ -838,13 +855,13 @@ export function TemplatePortal() {
                   )}
 
                   {/* Active Filters Pill Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-3">
-                    <div className="flex items-center gap-2 text-[11px] text-[#727b70]">
+                  <div className="flex flex-col gap-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#727b70]">
                       <span className="font-semibold text-[#30382f]">{pagination.totalRecords}</span> templates found
                       {(query || Object.values(appliedFilters).some(Boolean)) && (
                         <button
                           onClick={resetFilters}
-                          className="ml-1 flex items-center gap-1 rounded-full bg-[#edf4ef] px-2 py-1 text-[10px] text-[#346246]"
+                          className="ml-1 flex items-center gap-1 rounded-full bg-[#edf4ef] px-2 py-0.5 text-[10px] text-[#346246]"
                         >
                           Clear all <X size={11} />
                         </button>
@@ -855,16 +872,16 @@ export function TemplatePortal() {
                           <button
                             key={key}
                             onClick={() => removeSingleFilter(key)}
-                            className="inline-flex items-center gap-1 rounded-full border border-[#e3e9e1] bg-white px-2 py-1 text-[10px] text-[#52614f]"
+                            className="inline-flex items-center gap-1 rounded-full border border-[#e3e9e1] bg-white px-2 py-0.5 text-[10px] text-[#52614f]"
                           >
                             {appliedFilterLabels[key] || key}: {appliedFilters[key]} <X size={10} />
                           </button>
                         ))}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-end">
                       <button
                         onClick={exportResults}
-                        className="flex items-center gap-1.5 text-[11px] text-[#71796f] hover:text-[#205c3c]"
+                        className="inline-flex items-center gap-1.5 text-[11px] text-[#71796f] hover:text-[#205c3c]"
                       >
                         <Download size={13} /> Export CSV
                       </button>
@@ -874,7 +891,7 @@ export function TemplatePortal() {
 
                 {/* Bulk selection bar */}
                 {checked.length > 0 && (
-                  <div className="flex items-center justify-between border-b border-[#e8eee8] bg-[#f3f7f3] px-5 py-2">
+                  <div className="flex items-center justify-between border-b border-[#e8eee8] bg-[#f3f7f3] px-4 py-2">
                     <span className="text-[11px] text-[#3e674a]">{checked.length} selected</span>
                     <button
                       onClick={() =>
@@ -893,9 +910,125 @@ export function TemplatePortal() {
                   </div>
                 )}
 
-                {/* Templates Table */}
-                <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[1000px] border-collapse text-left">
+                {/* 1. Mobile Cards View (Visible on < md screens) */}
+                <div className="block md:hidden divide-y divide-[#edf0ec]">
+                  {loading ? (
+                    <div className="px-4 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 size={20} className="animate-spin text-[#205c3c]" />
+                        <span className="text-xs text-[#717b70]">Loading templates...</span>
+                      </div>
+                    </div>
+                  ) : templates.length === 0 ? (
+                    <div className="px-4 py-12 text-center">
+                      <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-[#f0f3ef] text-[#7e897c]">
+                        <Search size={16} />
+                      </div>
+                      <p className="text-[13px] font-medium text-[#2d342c]">No templates found</p>
+                      <p className="mt-1 text-[11px] text-[#8c9389]">
+                        Try adjusting your search criteria or clear your active filters.
+                      </p>
+                    </div>
+                  ) : (
+                    templates.map((t, i) => (
+                      <div key={t.id} className="p-3.5 space-y-2 hover:bg-[#fafbf9] transition">
+                        {/* Card Header: Checkbox, DLT ID, Remark */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${t.name}`}
+                              checked={checked.includes(t.id)}
+                              onChange={(e) =>
+                                setChecked(
+                                  e.target.checked
+                                    ? [...checked, t.id]
+                                    : checked.filter((id) => id !== t.id)
+                                )
+                              }
+                              className="accent-[#205c3c] size-3.5"
+                            />
+                            <button
+                              onClick={() => copyText(t.dltTemplateId, "DLT ID copied")}
+                              className="font-mono text-[11px] font-semibold text-[#446549] hover:underline flex items-center gap-1"
+                            >
+                              {t.dltTemplateId}
+                              <Copy size={11} className="text-[#879688]" />
+                            </button>
+                          </div>
+                          <Remark value={t.remarks || (t.isActive ? "Active" : "Inactive")} />
+                        </div>
+
+                        {/* Title & Preview */}
+                        <div>
+                          <button
+                            onClick={() => setSelected(t)}
+                            className="text-left text-[13px] font-semibold text-[#272e25] hover:text-[#205c3c] leading-snug line-clamp-1"
+                          >
+                            {t.name}
+                          </button>
+                          <p className="mt-0.5 text-[11px] text-[#6d756b] line-clamp-2 leading-relaxed">
+                            {t.content}
+                          </p>
+                        </div>
+
+                        {/* Metadata row */}
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-[#788175] pt-1">
+                          <span className="rounded bg-[#f1f3f0] px-1.5 py-0.5 font-medium text-[#4f564d]">
+                            {t.dueDate}
+                          </span>
+                          <span>•</span>
+                          <span className="font-medium text-[#444b41] truncate max-w-[120px]">
+                            {t.ownerName}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {new Date(t.updatedAt).toLocaleDateString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                            })}
+                          </span>
+                          {(t.attachmentLink1 || t.attachmentLink2) && (
+                            <>
+                              <span>•</span>
+                              <span className="inline-flex items-center gap-0.5 text-[#3a6845] font-medium">
+                                <Paperclip size={11} /> {(t.attachmentLink1 ? 1 : 0) + (t.attachmentLink2 ? 1 : 0)} link
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Mobile Action Buttons */}
+                        <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-[#f4f6f3]">
+                          <button
+                            onClick={() => setSelected(t)}
+                            className="inline-flex h-7 items-center gap-1 rounded border border-[#e2e7e0] bg-white px-2.5 text-[10px] font-medium text-[#4e584d] hover:bg-[#f6f8f5]"
+                          >
+                            <ExternalLink size={11} /> View
+                          </button>
+                          <button
+                            onClick={() => openEditModal(t)}
+                            className="inline-flex h-7 items-center gap-1 rounded border border-[#e2e7e0] bg-white px-2.5 text-[10px] font-medium text-[#4e584d] hover:bg-[#f6f8f5]"
+                          >
+                            <Edit3 size={11} /> Edit
+                          </button>
+                          {user?.role === "ADMIN" && (
+                            <button
+                              onClick={() => handleDeactivate(t.id)}
+                              className="inline-flex h-7 items-center gap-1 rounded border border-[#eed0cc] bg-[#fff8f7] px-2 text-[10px] font-medium text-[#a1483c] hover:bg-[#fae8e6]"
+                            >
+                              <Trash2 size={11} /> Deactivate
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* 2. Desktop & Tablet Table (Visible on md+ screens) */}
+                <div className="hidden md:block w-full overflow-x-auto">
+                  <table className="w-full min-w-[960px] border-collapse text-left">
                     <thead className="bg-[#fafbf9]">
                       <tr className="border-b border-[#e9ece7] text-[10px] font-semibold uppercase tracking-[.065em] text-[#899187]">
                         <th className="w-10 px-4 py-3">
@@ -1088,9 +1221,9 @@ export function TemplatePortal() {
                   </table>
                 </div>
 
-                {/* Pagination Controls */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0ec] px-4 py-3 sm:px-5">
-                  <span className="text-[10px] text-[#899187]">
+                {/* Responsive Pagination Controls */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-[#edf0ec] px-3.5 py-3 sm:px-5">
+                  <span className="text-[11px] text-[#899187] text-center sm:text-left">
                     Showing{" "}
                     {pagination.totalRecords
                       ? (pagination.currentPage - 1) * pagination.limit + 1
@@ -1102,9 +1235,9 @@ export function TemplatePortal() {
                     )}{" "}
                     of {pagination.totalRecords} records
                   </span>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 text-[10px] text-[#838b80]">
-                      Rows per page
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <label className="flex items-center gap-1.5 text-[11px] text-[#838b80]">
+                      Rows
                       <select
                         value={rowsPerPage}
                         onChange={(e) => {
@@ -1124,17 +1257,17 @@ export function TemplatePortal() {
                       <button
                         disabled={!pagination.hasPrevPage}
                         onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                        className="h-7 rounded border border-[#e7ebe5] bg-white px-2.5 text-[10px] font-medium text-[#4b5449] disabled:opacity-40 hover:bg-[#fafbf9]"
+                        className="h-7 rounded border border-[#e7ebe5] bg-white px-2.5 text-[11px] font-medium text-[#4b5449] disabled:opacity-40 hover:bg-[#fafbf9]"
                       >
                         Previous
                       </button>
-                      <span className="px-2 text-[10px] text-[#737b71]">
+                      <span className="px-2 text-[11px] font-medium text-[#737b71]">
                         {pagination.currentPage} / {Math.max(1, pagination.totalPages)}
                       </span>
                       <button
                         disabled={!pagination.hasNextPage}
                         onClick={() => setCurrentPage(currentPage + 1)}
-                        className="h-7 rounded border border-[#e7ebe5] bg-white px-2.5 text-[10px] font-medium text-[#4b5449] disabled:opacity-40 hover:bg-[#fafbf9]"
+                        className="h-7 rounded border border-[#e7ebe5] bg-white px-2.5 text-[11px] font-medium text-[#4b5449] disabled:opacity-40 hover:bg-[#fafbf9]"
                       >
                         Next
                       </button>
@@ -1161,21 +1294,23 @@ export function TemplatePortal() {
         </main>
       </div>
 
-      {/* Template Detail Drawer */}
+      {/* Template Detail Drawer - Fully Responsive */}
       {selected && (
         <div
-          className="fixed inset-0 z-40 flex justify-end bg-black/25"
+          className="fixed inset-0 z-40 flex justify-end bg-black/35 backdrop-blur-xs"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setSelected(null)
           }}
         >
-          <section className="flex h-full w-full max-w-[540px] flex-col bg-white shadow-xl animate-in slide-in-from-right duration-200">
-            <div className="flex items-start justify-between border-b border-[#e9ece7] px-5 py-4">
+          <section className="flex h-full w-full sm:max-w-[540px] flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200">
+            <div className="flex items-start justify-between border-b border-[#e9ece7] px-4 py-3.5 sm:px-5 sm:py-4">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[.1em] text-[#7d897d]">
                   DLT Template Details
                 </p>
-                <h2 className="mt-1 text-[17px] font-semibold text-[#252c23]">{selected.name}</h2>
+                <h2 className="mt-0.5 text-[16px] sm:text-[17px] font-semibold text-[#252c23]">
+                  {selected.name}
+                </h2>
                 <p className="mt-0.5 font-mono text-[11px] text-[#66806a]">{selected.dltTemplateId}</p>
               </div>
               <button
@@ -1183,12 +1318,12 @@ export function TemplatePortal() {
                 onClick={() => setSelected(null)}
                 className="rounded p-1.5 text-[#788075] hover:bg-[#f2f4f1]"
               >
-                <X size={17} />
+                <X size={18} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-5">
-              <div className="grid grid-cols-2 gap-4 rounded-md border border-[#edf0ec] bg-[#fafbf9] p-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 rounded-md border border-[#edf0ec] bg-[#fafbf9] p-3.5 sm:p-4">
                 <Detail label="Due Date / Frequency" value={selected.dueDate} />
                 <Detail label="Owner Name" value={selected.ownerName} />
                 <Detail label="Remarks" value={selected.remarks || "—"} />
@@ -1204,12 +1339,12 @@ export function TemplatePortal() {
               </div>
 
               {/* SMS Content */}
-              <div className="mt-6">
+              <div className="mt-5">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-[12px] font-semibold">SMS Content</h3>
                   <span className="text-[10px] text-[#929a90]">{selected.content.length} characters</span>
                 </div>
-                <div className="whitespace-pre-wrap rounded-md border border-[#e9ece7] bg-[#fafbf9] p-4 text-[12px] leading-6 text-[#4b5549]">
+                <div className="whitespace-pre-wrap rounded-md border border-[#e9ece7] bg-[#fafbf9] p-3.5 sm:p-4 text-[12px] leading-6 text-[#4b5549]">
                   {selected.content.split(/(\.\*|\{[^}]+\})/g).map((part, i) =>
                     part === ".*" || part.startsWith("{") ? (
                       <mark key={i} className="rounded-sm bg-[#eaf2eb] px-1 text-[#285c3b]">
@@ -1229,7 +1364,7 @@ export function TemplatePortal() {
               </div>
 
               {/* Attachments Section */}
-              <div className="mt-6">
+              <div className="mt-5">
                 <h3 className="text-[12px] font-semibold mb-2">Attached Links & Resources</h3>
                 <div className="flex flex-col gap-2">
                   {selected.attachmentLink1 ? (
@@ -1237,13 +1372,13 @@ export function TemplatePortal() {
                       href={selected.attachmentLink1}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between rounded-md border border-[#e5eae3] bg-[#fafbf9] p-3 hover:bg-[#f4f7f3]"
+                      className="flex items-center justify-between rounded-md border border-[#e5eae3] bg-[#fafbf9] p-2.5 sm:p-3 hover:bg-[#f4f7f3]"
                     >
-                      <div className="flex items-center gap-2 text-[11px] text-[#346244]">
-                        <LinkIcon size={14} />
-                        <span className="truncate max-w-[340px] font-medium">{selected.attachmentLink1}</span>
+                      <div className="flex items-center gap-2 text-[11px] text-[#346244] min-w-0">
+                        <LinkIcon size={14} className="shrink-0" />
+                        <span className="truncate font-medium">{selected.attachmentLink1}</span>
                       </div>
-                      <ExternalLink size={13} className="text-[#6d796b]" />
+                      <ExternalLink size={13} className="text-[#6d796b] shrink-0 ml-2" />
                     </a>
                   ) : null}
 
@@ -1252,13 +1387,13 @@ export function TemplatePortal() {
                       href={selected.attachmentLink2}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between rounded-md border border-[#e5eae3] bg-[#fafbf9] p-3 hover:bg-[#f4f7f3]"
+                      className="flex items-center justify-between rounded-md border border-[#e5eae3] bg-[#fafbf9] p-2.5 sm:p-3 hover:bg-[#f4f7f3]"
                     >
-                      <div className="flex items-center gap-2 text-[11px] text-[#346244]">
-                        <LinkIcon size={14} />
-                        <span className="truncate max-w-[340px] font-medium">{selected.attachmentLink2}</span>
+                      <div className="flex items-center gap-2 text-[11px] text-[#346244] min-w-0">
+                        <LinkIcon size={14} className="shrink-0" />
+                        <span className="truncate font-medium">{selected.attachmentLink2}</span>
                       </div>
-                      <ExternalLink size={13} className="text-[#6d796b]" />
+                      <ExternalLink size={13} className="text-[#6d796b] shrink-0 ml-2" />
                     </a>
                   ) : null}
 
@@ -1271,7 +1406,7 @@ export function TemplatePortal() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#e9ece7] px-5 py-3">
+            <div className="flex items-center justify-between border-t border-[#e9ece7] px-4 py-3 sm:px-5">
               <button
                 onClick={() => copyText(selected.dltTemplateId, "DLT Template ID copied")}
                 className="flex h-8 items-center gap-1.5 rounded border border-[#e2e7e0] px-3 text-[11px] hover:bg-[#f7f9f6]"
@@ -1288,9 +1423,7 @@ export function TemplatePortal() {
                   </button>
                 )}
                 <button
-                  onClick={() => {
-                    openEditModal(selected)
-                  }}
+                  onClick={() => openEditModal(selected)}
                   className="h-8 rounded bg-[#205c3c] px-3.5 text-[11px] font-medium text-white hover:bg-[#174b30]"
                 >
                   Edit template
@@ -1301,16 +1434,16 @@ export function TemplatePortal() {
         </div>
       )}
 
-      {/* Add / Edit / Import Modals */}
+      {/* Add / Edit / Import Modals - Fully Responsive */}
       {modal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget && !modalLoading) setModal(null)
           }}
         >
-          <section className="w-full max-w-[580px] rounded-lg border border-[#e8ebe6] bg-white shadow-xl">
-            <div className="flex items-start justify-between border-b border-[#edf0ec] px-5 py-4">
+          <section className="w-full max-w-[580px] max-h-[92vh] flex flex-col rounded-lg border border-[#e8ebe6] bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-[#edf0ec] px-4 py-3.5 sm:px-5 sm:py-4">
               <div>
                 <h2 className="text-[15px] font-semibold text-[#252c23]">
                   {modal === "add"
@@ -1329,31 +1462,33 @@ export function TemplatePortal() {
                 disabled={modalLoading}
                 aria-label="Close"
                 onClick={() => setModal(null)}
-                className="text-[#7e867c] hover:text-[#383f36]"
+                className="text-[#7e867c] hover:text-[#383f36] p-1"
               >
                 <X size={17} />
               </button>
             </div>
 
             {modal === "import" ? (
-              <TemplateImportWizard
-                onClose={() => setModal(null)}
-                onDone={(res) => {
-                  setModal(null)
-                  fetchTemplates()
-                  fetchOverview()
-                  fetchFilterOptions()
-                  if (res) {
-                    notify(`Imported ${res.successfulCount} new templates to database!`)
-                  }
-                }}
-              />
+              <div className="overflow-y-auto flex-1">
+                <TemplateImportWizard
+                  onClose={() => setModal(null)}
+                  onDone={(res) => {
+                    setModal(null)
+                    fetchTemplates()
+                    fetchOverview()
+                    fetchFilterOptions()
+                    if (res) {
+                      notify(`Imported ${res.successfulCount} new templates to database!`)
+                    }
+                  }}
+                />
+              </div>
             ) : (
-              <div className="max-h-[75vh] overflow-y-auto p-5">
+              <div className="overflow-y-auto flex-1 p-4 sm:p-5">
                 {modalError && (
                   <p
                     role="alert"
-                    className="mb-4 rounded-md border border-[#efd7d3] bg-[#fff7f5] px-3.5 py-2 text-[11px] text-[#9b4a3e]"
+                    className="mb-3.5 rounded-md border border-[#efd7d3] bg-[#fff7f5] px-3.5 py-2 text-[11px] text-[#9b4a3e]"
                   >
                     {modalError}
                   </p>
@@ -1453,7 +1588,7 @@ export function TemplatePortal() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex justify-end gap-2 border-t border-[#edf0ec] pt-4">
+                <div className="mt-5 flex justify-end gap-2 border-t border-[#edf0ec] pt-3.5">
                   <button
                     disabled={modalLoading}
                     onClick={() => setModal(null)}
@@ -1485,7 +1620,7 @@ export function TemplatePortal() {
       {toast && (
         <div
           role="status"
-          className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-md bg-[#263a2c] px-4 py-3 text-[12px] text-white shadow-lg animate-in fade-in duration-200"
+          className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-[60] flex items-center gap-2 rounded-md bg-[#263a2c] px-3.5 py-2.5 sm:px-4 sm:py-3 text-[12px] text-white shadow-xl animate-in fade-in duration-200"
         >
           <Check size={15} />
           {toast}
@@ -1507,13 +1642,13 @@ function Stat({
   icon: typeof Files
 }) {
   return (
-    <div className="rounded-lg border border-[#e6eae4] bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+    <div className="rounded-lg border border-[#e6eae4] bg-white p-3 sm:px-4 sm:py-3.5 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
       <div className="flex items-start justify-between">
-        <p className="text-[11px] font-medium text-[#727b70]">{label}</p>
-        <Icon size={15} className="text-[#8d9a8b]" />
+        <p className="text-[10px] sm:text-[11px] font-medium text-[#727b70] truncate">{label}</p>
+        <Icon size={14} className="text-[#8d9a8b] shrink-0" />
       </div>
-      <p className="mt-2 text-[23px] font-semibold tracking-[-.04em] text-[#242b23]">{value}</p>
-      <p className="mt-0.5 text-[10px] text-[#9aa096]">{note}</p>
+      <p className="mt-1.5 text-[20px] sm:text-[23px] font-semibold tracking-[-.04em] text-[#242b23]">{value}</p>
+      <p className="mt-0.5 text-[9px] sm:text-[10px] text-[#9aa096] truncate">{note}</p>
     </div>
   )
 }
@@ -1537,7 +1672,7 @@ function FilterInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[10px] font-medium text-[#6b7469]">{label}</span>
+      <span className="mb-1 block text-[10px] font-medium text-[#6b7469]">{label}</span>
       {select ? (
         <select value={value} onChange={(e) => onChange(e.target.value)} className={cnInput}>
           <option value="">{label === "Frequency" ? "All frequencies" : `All ${label.toLowerCase()}s`}</option>
@@ -1577,7 +1712,7 @@ function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-[10px] text-[#8b9389]">{label}</p>
-      <p className="mt-0.5 text-[12px] font-medium text-[#3f483d]">{value}</p>
+      <p className="mt-0.5 text-[12px] font-medium text-[#3f483d] break-words">{value}</p>
     </div>
   )
 }
@@ -1610,56 +1745,56 @@ function DashboardView({
 }) {
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-5 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="mb-1 text-[11px] text-[#7e877c]">
+          <p className="mb-1 text-[10px] sm:text-[11px] text-[#7e877c]">
             {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
-          <h2 className="text-[23px] font-semibold tracking-[-.035em]">
+          <h2 className="text-[20px] sm:text-[23px] font-semibold tracking-[-.035em]">
             Welcome, {user?.name?.split(" ")[0] || "Employee"}
           </h2>
-          <p className="mt-1 text-[12px] text-[#7b8379]">
+          <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
             Live dashboard of India Shelter communication templates and distribution frequencies.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <button
             onClick={onImport}
-            className="flex h-9 items-center gap-2 rounded-md border border-[#dfe4dd] bg-white px-3 text-[12px] font-medium text-[#444c42] hover:bg-[#f9faf8]"
+            className="flex h-9 items-center justify-center gap-2 rounded-md border border-[#dfe4dd] bg-white px-3 text-[12px] font-medium text-[#444c42] hover:bg-[#f9faf8]"
           >
             <Upload size={14} /> Import Excel
           </button>
           <button
             onClick={onAdd}
-            className="flex h-9 items-center gap-2 rounded-md bg-[#205c3c] px-3.5 text-[12px] font-medium text-white shadow-xs hover:bg-[#174b30]"
+            className="flex h-9 items-center justify-center gap-2 rounded-md bg-[#205c3c] px-3.5 text-[12px] font-medium text-white shadow-xs hover:bg-[#174b30]"
           >
             <Plus size={15} /> Add template
           </button>
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-5 sm:mb-6 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         {[
           { label: "Total templates", value: stats.totalTemplates, icon: Files, note: "In PostgreSQL" },
           { label: "Active templates", value: stats.activeTemplates, icon: Check, note: "Ready to broadcast" },
           { label: "Adhoc templates", value: stats.adhocTemplates, icon: CalendarDays, note: "On-demand notices" },
           { label: "With attachments", value: stats.templatesWithAttachments, icon: Paperclip, note: "Supporting URLs" },
         ].map(({ label, value, icon: Icon, note }) => (
-          <div key={label} className="rounded-lg border border-[#e6eae4] bg-white p-4 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+          <div key={label} className="rounded-lg border border-[#e6eae4] bg-white p-3.5 sm:p-4 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
             <div className="flex justify-between text-[11px] text-[#727b70]">
-              <span>{label}</span>
-              <Icon size={15} className="text-[#8d9a8b]" />
+              <span className="truncate">{label}</span>
+              <Icon size={14} className="text-[#8d9a8b] shrink-0" />
             </div>
-            <p className="mt-2 text-[25px] font-semibold tracking-tight text-[#232922]">{value}</p>
-            <p className="mt-0.5 text-[10px] text-[#9ba197]">{note}</p>
+            <p className="mt-1.5 sm:mt-2 text-[20px] sm:text-[25px] font-semibold tracking-tight text-[#232922]">{value}</p>
+            <p className="mt-0.5 text-[9px] sm:text-[10px] text-[#9ba197] truncate">{note}</p>
           </div>
         ))}
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_300px]">
-        {/* Recently Updated Templates Table */}
+        {/* Recently Updated Templates Table / Cards */}
         <section className="overflow-hidden rounded-lg border border-[#e5e9e3] bg-white shadow-[0_1px_2px_rgba(20,32,20,.02)]">
-          <div className="flex items-center justify-between border-b border-[#edf0ec] px-5 py-4">
+          <div className="flex items-center justify-between border-b border-[#edf0ec] px-4 py-3.5 sm:px-5 sm:py-4">
             <div>
               <h3 className="text-[13px] font-semibold text-[#252b23]">Recently Modified Templates</h3>
               <p className="mt-0.5 text-[10px] text-[#8c9389]">Latest live updates across your department</p>
@@ -1671,8 +1806,35 @@ function DashboardView({
               View all <ArrowRight size={13} />
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left">
+
+          {/* Mobile recent items */}
+          <div className="block sm:hidden divide-y divide-[#edf0ec]">
+            {recentTemplates.length === 0 ? (
+              <div className="px-4 py-8 text-center text-xs text-[#8c9389]">No templates found.</div>
+            ) : (
+              recentTemplates.map((t) => (
+                <div key={t.id} className="p-3 hover:bg-[#fafbf9]">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => onView(t)}
+                      className="text-left text-xs font-semibold text-[#272e25] truncate"
+                    >
+                      {t.name}
+                    </button>
+                    <Remark value={t.remarks || (t.isActive ? "Active" : "Inactive")} />
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[10px] text-[#858f83]">
+                    <span className="font-mono">{t.dltTemplateId}</span>
+                    <span>{t.dueDate}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop recent items */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full min-w-[580px] text-left">
               <thead className="bg-[#fafbf9] text-[10px] uppercase tracking-wide text-[#899187]">
                 <tr>
                   <th className="px-4 py-3">Template</th>
@@ -1764,35 +1926,35 @@ function DashboardView({
 function ActivityView({ templates }: { templates: Template[] }) {
   return (
     <>
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <p className="mb-1 text-[11px] text-[#7e877c]">Workspace / Audit Trail</p>
-        <h2 className="text-[23px] font-semibold tracking-[-.035em]">Activity & Logs</h2>
-        <p className="mt-1 text-[12px] text-[#7b8379]">
+        <h2 className="text-[20px] sm:text-[23px] font-semibold tracking-[-.035em]">Activity & Logs</h2>
+        <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
           Audit log of template registrations, updates, and spreadsheet imports.
         </p>
       </div>
       <section className="overflow-hidden rounded-lg border border-[#e5e9e3] bg-white shadow-[0_1px_2px_rgba(20,32,20,.02)]">
-        <div className="flex items-center justify-between border-b border-[#edf0ec] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[#edf0ec] px-4 py-3.5 sm:px-5 sm:py-4">
           <div>
             <h3 className="text-[13px] font-semibold text-[#242b23]">Recent Audit Events</h3>
             <p className="mt-0.5 text-[10px] text-[#8c9389]">Recorded across database operations</p>
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px] text-left">
+          <table className="w-full min-w-[640px] text-left">
             <thead className="bg-[#fafbf9] text-[10px] uppercase tracking-wide text-[#899187]">
               <tr>
-                <th className="px-5 py-3">Event</th>
-                <th className="px-4 py-3">Template Name</th>
-                <th className="px-4 py-3">DLT ID</th>
-                <th className="px-4 py-3">Owner</th>
-                <th className="px-4 py-3">Timestamp</th>
+                <th className="px-4 sm:px-5 py-3">Event</th>
+                <th className="px-3 sm:px-4 py-3">Template Name</th>
+                <th className="px-3 sm:px-4 py-3">DLT ID</th>
+                <th className="px-3 sm:px-4 py-3">Owner</th>
+                <th className="px-3 sm:px-4 py-3">Timestamp</th>
               </tr>
             </thead>
             <tbody>
               {templates.slice(0, 10).map((t, i) => (
                 <tr key={t.id} className="border-t border-[#f0f2ef] hover:bg-[#fafbf9]">
-                  <td className="px-5 py-3">
+                  <td className="px-4 sm:px-5 py-3">
                     <span className="flex items-center gap-2 text-[11px]">
                       <span
                         className={`size-1.5 rounded-full ${
@@ -1802,10 +1964,10 @@ function ActivityView({ templates }: { templates: Template[] }) {
                       {i === 0 ? "Template modified" : i % 2 === 0 ? "Record updated" : "Batch verified"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-[11px] font-medium text-[#2d342c]">{t.name}</td>
-                  <td className="px-4 py-3 font-mono text-[10px] text-[#687a69]">{t.dltTemplateId}</td>
-                  <td className="px-4 py-3 text-[11px] text-[#555d53]">{t.ownerName}</td>
-                  <td className="px-4 py-3 text-[10px] text-[#727b70]">
+                  <td className="px-3 sm:px-4 py-3 text-[11px] font-medium text-[#2d342c] truncate max-w-[180px]">{t.name}</td>
+                  <td className="px-3 sm:px-4 py-3 font-mono text-[10px] text-[#687a69]">{t.dltTemplateId}</td>
+                  <td className="px-3 sm:px-4 py-3 text-[11px] text-[#555d53]">{t.ownerName}</td>
+                  <td className="px-3 sm:px-4 py-3 text-[10px] text-[#727b70]">
                     {new Date(t.updatedAt).toLocaleString("en-IN", {
                       dateStyle: "medium",
                       timeStyle: "short",
@@ -1823,37 +1985,37 @@ function ActivityView({ templates }: { templates: Template[] }) {
 
 function SettingsView({ user, onLogout }: { user: User | null; onLogout: () => void }) {
   return (
-    <div className="rounded-lg border border-[#e5e9e3] bg-white p-8 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
-      <h2 className="text-lg font-semibold text-[#222920]">Employee Profile & Settings</h2>
-      <p className="mt-1 text-sm text-[#737b71]">
+    <div className="rounded-lg border border-[#e5e9e3] bg-white p-4 sm:p-8 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+      <h2 className="text-base sm:text-lg font-semibold text-[#222920]">Employee Profile & Settings</h2>
+      <p className="mt-1 text-xs sm:text-sm text-[#737b71]">
         Authenticated credentials and role-based permissions for India Shelter Workspace.
       </p>
 
-      <div className="mt-6 grid max-w-lg gap-5 sm:grid-cols-2">
-        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3.5">
-          <p className="text-[11px] text-[#8b9389]">Employee Name</p>
-          <p className="mt-1 text-sm font-semibold text-[#293127]">{user?.name || "—"}</p>
+      <div className="mt-5 sm:mt-6 grid max-w-lg gap-3 sm:gap-4 sm:grid-cols-2">
+        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 sm:p-3.5">
+          <p className="text-[10px] sm:text-[11px] text-[#8b9389]">Employee Name</p>
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127]">{user?.name || "—"}</p>
         </div>
-        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3.5">
-          <p className="text-[11px] text-[#8b9389]">Role & Permissions</p>
-          <p className="mt-1 text-sm font-semibold text-[#293127]">
+        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 sm:p-3.5">
+          <p className="text-[10px] sm:text-[11px] text-[#8b9389]">Role & Permissions</p>
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127]">
             {user?.role === "ADMIN" ? "Administrator" : "Employee"}
           </p>
         </div>
-        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3.5">
-          <p className="text-[11px] text-[#8b9389]">Employee ID</p>
-          <p className="mt-1 font-mono text-sm font-semibold text-[#293127]">{user?.employeeId || "—"}</p>
+        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 sm:p-3.5">
+          <p className="text-[10px] sm:text-[11px] text-[#8b9389]">Employee ID</p>
+          <p className="mt-1 font-mono text-xs sm:text-sm font-semibold text-[#293127]">{user?.employeeId || "—"}</p>
         </div>
-        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3.5">
-          <p className="text-[11px] text-[#8b9389]">Corporate Email</p>
-          <p className="mt-1 text-sm font-semibold text-[#293127]">{user?.email || "—"}</p>
+        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 sm:p-3.5">
+          <p className="text-[10px] sm:text-[11px] text-[#8b9389]">Corporate Email</p>
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127] truncate">{user?.email || "—"}</p>
         </div>
       </div>
 
-      <div className="mt-8 border-t border-[#edf0ec] pt-6 flex items-center justify-between max-w-lg">
+      <div className="mt-6 sm:mt-8 border-t border-[#edf0ec] pt-5 sm:pt-6 flex items-center justify-between max-w-lg">
         <div>
           <p className="text-xs font-semibold text-[#2f362d]">Session Authentication</p>
-          <p className="text-[11px] text-[#899187]">Secured with Bearer JWT</p>
+          <p className="text-[10px] sm:text-[11px] text-[#899187]">Secured with Bearer JWT</p>
         </div>
         <button
           onClick={onLogout}
