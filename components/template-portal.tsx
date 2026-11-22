@@ -32,10 +32,19 @@ import {
   Trash2,
   Edit3,
   RefreshCw,
-  Link as LinkIcon
+  Link as LinkIcon,
+  UserPlus,
+  Key,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldAlert,
+  UserCheck,
+  UserX,
+  ShieldCheck,
 } from "lucide-react"
 import { TemplateImportWizard } from "@/components/template-import-wizard"
-import { api, tokenStorage, userStorage, Template, User, DashboardOverview, Pagination } from "@/lib/api"
+import { api, tokenStorage, userStorage, Template, User, TeamMember, DashboardOverview, Pagination } from "@/lib/api"
 
 const fallbackFrequencies = [
   "Adhoc",
@@ -71,8 +80,50 @@ export function TemplatePortal() {
   const [authChecking, setAuthChecking] = useState(true)
 
   // Navigation State
-  const [page, setPage] = useState<"Dashboard" | "Template Explorer" | "Activity" | "Settings">("Dashboard")
+  const [page, setPage] = useState<"Dashboard" | "Template Explorer" | "Meet Our Team" | "Staff Management" | "Activity" | "Settings">("Dashboard")
   const [mobileNav, setMobileNav] = useState(false)
+
+  // Staff Management State (Admin only)
+  const [staffList, setStaffList] = useState<User[]>([])
+  const [staffLoading, setStaffLoading] = useState(false)
+  const [staffModal, setStaffModal] = useState<"add" | "edit" | null>(null)
+  const [passwordStaff, setPasswordStaff] = useState<User | null>(null)
+  const [staffSearch, setStaffSearch] = useState("")
+  const [staffRoleFilter, setStaffRoleFilter] = useState<"ALL" | "ADMIN" | "EMPLOYEE">("ALL")
+  const [staffStatusFilter, setStaffStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL")
+  const [showPassword, setShowPassword] = useState(false)
+  const [staffSubmitting, setStaffSubmitting] = useState(false)
+
+  const [staffDraft, setStaffDraft] = useState({
+    id: "",
+    employeeId: "",
+    name: "",
+    email: "",
+    role: "EMPLOYEE" as "ADMIN" | "EMPLOYEE",
+    password: "",
+    isActive: true,
+  })
+
+  const [passwordDraft, setPasswordDraft] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  })
+
+  // Meet Our Team State
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [teamLoading, setTeamLoading] = useState(false)
+  const [teamModal, setTeamModal] = useState<"add" | "edit" | null>(null)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [teamDraft, setTeamDraft] = useState({
+    id: "",
+    name: "",
+    designation: "",
+    photoUrl: "",
+    bio: "",
+    department: "Operations",
+    order: 0,
+    isActive: true,
+  })
 
   // Template Data State
   const [templates, setTemplates] = useState<Template[]>([])
@@ -248,14 +299,49 @@ export function TemplatePortal() {
     }
   }, [query, appliedFilters, currentPage, rowsPerPage, sortBy, sortOrder])
 
+  // 5. Fetch Meet Our Team
+  const fetchTeam = useCallback(async () => {
+    setTeamLoading(true)
+    try {
+      const res = await api.team.getAll()
+      if (res.success && res.data) {
+        setTeamMembers(res.data)
+      }
+    } catch (err) {
+      console.error("Failed to load team members:", err)
+    } finally {
+      setTeamLoading(false)
+    }
+  }, [])
+
+  // 6. Fetch Staff Members (Admin only)
+  const fetchStaff = useCallback(async () => {
+    if (user?.role !== "ADMIN") return
+    setStaffLoading(true)
+    try {
+      const res = await api.staff.getAll()
+      if (res.success && res.data) {
+        setStaffList(res.data)
+      }
+    } catch (err: any) {
+      console.error("Failed to load staff list:", err)
+    } finally {
+      setStaffLoading(false)
+    }
+  }, [user?.role])
+
   // Initial load
   useEffect(() => {
     if (mounted && user) {
       fetchOverview()
       fetchFilterOptions()
       fetchTemplates()
+      fetchTeam()
+      if (user.role === "ADMIN") {
+        fetchStaff()
+      }
     }
-  }, [mounted, user, fetchOverview, fetchFilterOptions, fetchTemplates])
+  }, [mounted, user, fetchOverview, fetchFilterOptions, fetchTemplates, fetchTeam, fetchStaff])
 
   // Filter actions
   const applyFilters = () => {
@@ -477,7 +563,205 @@ export function TemplatePortal() {
     }
   }
 
-  const chooseNav = (nav: "Dashboard" | "Template Explorer" | "Activity" | "Settings") => {
+  const openAddTeamModal = () => {
+    setTeamDraft({
+      id: "",
+      name: "",
+      designation: "",
+      photoUrl: "",
+      bio: "",
+      department: "Operations",
+      order: teamMembers.length + 1,
+      isActive: true,
+    })
+    setTeamModal("add")
+  }
+
+  const openEditTeamModal = (m: TeamMember) => {
+    setTeamDraft({
+      id: m.id,
+      name: m.name,
+      designation: m.designation,
+      photoUrl: m.photoUrl,
+      bio: m.bio || "",
+      department: m.department || "",
+      order: m.order,
+      isActive: m.isActive,
+    })
+    setTeamModal("edit")
+  }
+
+  const handleSaveTeamMember = async () => {
+    if (!teamDraft.name.trim() || !teamDraft.designation.trim() || !teamDraft.photoUrl.trim()) {
+      notify("Please provide Name, Designation, and Photo URL")
+      return
+    }
+    try {
+      if (teamModal === "add") {
+        await api.team.create(teamDraft)
+        notify("Team member added successfully!")
+      } else if (teamModal === "edit" && teamDraft.id) {
+        await api.team.update(teamDraft.id, teamDraft)
+        notify("Team member updated successfully!")
+      }
+      setTeamModal(null)
+      fetchTeam()
+    } catch (err: any) {
+      notify(err?.message || "Failed to save team member")
+    }
+  }
+
+  const handleDeleteTeamMember = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}" from team?`)) return
+    try {
+      await api.team.delete(id)
+      notify("Team member deleted")
+      fetchTeam()
+    } catch (err: any) {
+      notify(err?.message || "Failed to delete team member")
+    }
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoUploading(true)
+    try {
+      const res = await api.storage.upload(file, "team")
+      if (res.data?.url) {
+        setTeamDraft((prev) => ({ ...prev, photoUrl: res.data.url }))
+        notify("Photo uploaded to Neon Object Storage bucket!")
+      }
+    } catch (err: any) {
+      notify(err?.message || "Failed to upload photo to Neon storage")
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
+  // Staff Handlers (Admin Only)
+  const openAddStaffModal = () => {
+    setStaffDraft({
+      id: "",
+      employeeId: "",
+      name: "",
+      email: "",
+      role: "EMPLOYEE",
+      password: "",
+      isActive: true,
+    })
+    setShowPassword(false)
+    setStaffModal("add")
+  }
+
+  const openEditStaffModal = (staff: User) => {
+    setStaffDraft({
+      id: staff.id,
+      employeeId: staff.employeeId,
+      name: staff.name,
+      email: staff.email,
+      role: staff.role,
+      password: "",
+      isActive: staff.isActive,
+    })
+    setStaffModal("edit")
+  }
+
+  const openChangePasswordModal = (staff: User) => {
+    setPasswordStaff(staff)
+    setPasswordDraft({ newPassword: "", confirmPassword: "" })
+    setShowPassword(false)
+  }
+
+  const handleSaveStaff = async () => {
+    if (staffModal === "add") {
+      if (!staffDraft.employeeId.trim() || !staffDraft.name.trim() || !staffDraft.email.trim() || !staffDraft.password.trim()) {
+        notify("Please fill in Name, Employee ID, Email, and Password")
+        return
+      }
+      if (staffDraft.password.trim().length < 6) {
+        notify("Password must be at least 6 characters long")
+        return
+      }
+      setStaffSubmitting(true)
+      try {
+        const res = await api.staff.create({
+          employeeId: staffDraft.employeeId.trim().toUpperCase(),
+          name: staffDraft.name.trim(),
+          email: staffDraft.email.trim(),
+          role: staffDraft.role,
+          password: staffDraft.password.trim(),
+        })
+        notify(res.message || "Staff member registered successfully!")
+        setStaffModal(null)
+        fetchStaff()
+      } catch (err: any) {
+        notify(err?.message || "Failed to create staff member")
+      } finally {
+        setStaffSubmitting(false)
+      }
+    } else if (staffModal === "edit" && staffDraft.id) {
+      if (!staffDraft.name.trim() || !staffDraft.email.trim()) {
+        notify("Please provide Name and Email")
+        return
+      }
+      setStaffSubmitting(true)
+      try {
+        const res = await api.staff.update(staffDraft.id, {
+          name: staffDraft.name.trim(),
+          email: staffDraft.email.trim(),
+          role: staffDraft.role,
+          isActive: staffDraft.isActive,
+        })
+        notify(res.message || "Staff details updated successfully!")
+        setStaffModal(null)
+        fetchStaff()
+      } catch (err: any) {
+        notify(err?.message || "Failed to update staff member")
+      } finally {
+        setStaffSubmitting(false)
+      }
+    }
+  }
+
+  const handleSaveStaffPassword = async () => {
+    if (!passwordStaff) return
+    if (!passwordDraft.newPassword || passwordDraft.newPassword.trim().length < 6) {
+      notify("New password must be at least 6 characters long")
+      return
+    }
+    if (passwordDraft.newPassword !== passwordDraft.confirmPassword) {
+      notify("Passwords do not match")
+      return
+    }
+    setStaffSubmitting(true)
+    try {
+      const res = await api.staff.changePassword(passwordStaff.id, passwordDraft.newPassword.trim())
+      notify(res.message || `Password for ${passwordStaff.name} updated successfully!`)
+      setPasswordStaff(null)
+      setPasswordDraft({ newPassword: "", confirmPassword: "" })
+    } catch (err: any) {
+      notify(err?.message || "Failed to change password")
+    } finally {
+      setStaffSubmitting(false)
+    }
+  }
+
+  const handleToggleStaffStatus = async (staff: User) => {
+    if (staff.id === user?.id) {
+      notify("You cannot deactivate your own administrative account")
+      return
+    }
+    try {
+      const res = await api.staff.update(staff.id, { isActive: !staff.isActive })
+      notify(res.message || (staff.isActive ? `Deactivated ${staff.name}` : `Activated ${staff.name}`))
+      fetchStaff()
+    } catch (err: any) {
+      notify(err?.message || "Failed to update account status")
+    }
+  }
+
+  const chooseNav = (nav: "Dashboard" | "Template Explorer" | "Meet Our Team" | "Staff Management" | "Activity" | "Settings") => {
     setPage(nav)
     setMobileNav(false)
   }
@@ -485,6 +769,8 @@ export function TemplatePortal() {
   const navItems = [
     { label: "Dashboard" as const, icon: LayoutDashboard },
     { label: "Template Explorer" as const, icon: Files },
+    { label: "Meet Our Team" as const, icon: Users },
+    ...(user?.role === "ADMIN" ? [{ label: "Staff Management" as const, icon: UserPlus }] : []),
     { label: "Activity" as const, icon: Clock3 },
   ]
 
@@ -655,7 +941,7 @@ export function TemplatePortal() {
               className="flex items-center gap-1.5 rounded-full p-0.5 hover:bg-[#f5f7f4]"
             >
               <div className="flex size-7 sm:size-8 items-center justify-center rounded-full bg-[#e7eee8] text-[10px] font-semibold text-[#376447]">
-                {user?.name?.slice(0, 2).toUpperCase() || "IS"}
+                {user?.role === "ADMIN" ? "AV" : "TM"}
               </div>
               <ChevronDown size={13} className="hidden text-[#8b9289] sm:block" />
             </button>
@@ -802,7 +1088,8 @@ export function TemplatePortal() {
                         />
                         <FilterInput
                           label="Owner name"
-                          select
+                          placeholder="Search or select owner..."
+                          datalistId="owners-filter-datalist"
                           options={ownersList}
                           value={filters.ownerName}
                           onChange={(v) => setFilters({ ...filters, ownerName: v })}
@@ -1276,6 +1563,40 @@ export function TemplatePortal() {
                 </div>
               </section>
             </>
+          ) : page === "Staff Management" ? (
+            user?.role === "ADMIN" ? (
+              <StaffManagementView
+                staffList={staffList}
+                loading={staffLoading}
+                currentUser={user}
+                search={staffSearch}
+                setSearch={setStaffSearch}
+                roleFilter={staffRoleFilter}
+                setRoleFilter={setStaffRoleFilter}
+                statusFilter={staffStatusFilter}
+                setStatusFilter={setStaffStatusFilter}
+                onAddStaff={openAddStaffModal}
+                onEditStaff={openEditStaffModal}
+                onChangePassword={openChangePasswordModal}
+                onToggleStatus={handleToggleStaffStatus}
+                onRefresh={fetchStaff}
+              />
+            ) : (
+              <div className="rounded-lg border border-[#f0d5d5] bg-[#fdf7f7] p-8 text-center">
+                <ShieldAlert size={28} className="mx-auto text-[#c0392b]" />
+                <h3 className="mt-3 text-sm font-semibold text-[#8a2218]">Access Restricted</h3>
+                <p className="mt-1 text-xs text-[#6e5553]">Staff management is restricted to Administrators only.</p>
+              </div>
+            )
+          ) : page === "Meet Our Team" ? (
+            <MeetOurTeamView
+              team={teamMembers}
+              loading={teamLoading}
+              user={user}
+              onAdd={openAddTeamModal}
+              onEdit={openEditTeamModal}
+              onDelete={handleDeleteTeamMember}
+            />
           ) : page === "Dashboard" ? (
             <DashboardView
               stats={stats}
@@ -1292,6 +1613,11 @@ export function TemplatePortal() {
             <SettingsView user={user} onLogout={handleLogout} />
           )}
         </main>
+
+        {/* Portal Bottom Attribution Footer */}
+        <footer className="border-t border-[#edf0ec] bg-white py-3.5 px-4 sm:px-8 text-center text-xs text-[#7e877c]">
+          India Shelter Finance Corporation · Internal Operations Workspace · <strong className="font-extrabold text-[#1a5131]">Created by Ayush Vishwakarma</strong>
+        </footer>
       </div>
 
       {/* Template Detail Drawer - Fully Responsive */}
@@ -1616,6 +1942,393 @@ export function TemplatePortal() {
         </div>
       )}
 
+      {/* Meet Our Team Add / Edit Modal */}
+      {teamModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 backdrop-blur-xs"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !photoUploading) setTeamModal(null)
+          }}
+        >
+          <section className="w-full max-w-[520px] max-h-[92vh] flex flex-col rounded-lg border border-[#e8ebe6] bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-[#edf0ec] px-4 py-3.5 sm:px-5 sm:py-4">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#252c23]">
+                  {teamModal === "add" ? "Add Team Member" : "Edit Team Member"}
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[#81897f]">
+                  Upload member photograph to Neon Object Storage bucket and provide their designation.
+                </p>
+              </div>
+              <button
+                disabled={photoUploading}
+                aria-label="Close"
+                onClick={() => setTeamModal(null)}
+                className="text-[#7e867c] hover:text-[#383f36] p-1"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-3.5">
+              {/* Photo Section with Neon Object Storage Upload */}
+              <div>
+                <label className="block text-[11px] font-medium text-[#535b50] mb-1.5">
+                  Member Photograph *
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="relative size-20 rounded-lg overflow-hidden border border-[#dce2da] bg-[#f4f7f4] flex items-center justify-center shrink-0">
+                    {teamDraft.photoUrl ? (
+                      <img
+                        src={teamDraft.photoUrl}
+                        alt={teamDraft.name || "Preview"}
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <Users className="size-8 text-[#98a396]" />
+                    )}
+                    {photoUploading && (
+                      <div className="absolute inset-0 bg-black/45 flex items-center justify-center text-white">
+                        <Loader2 size={18} className="animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-[#c9d4c9] bg-[#f4f7f3] px-3 py-1.5 text-[11px] font-medium text-[#205c3c] hover:bg-[#eaf1eb] transition">
+                      <Upload size={13} />
+                      <span>{photoUploading ? "Uploading to Neon Storage..." : "Upload Photo to Neon Storage"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={photoUploading}
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-[10px] text-[#838b81]">
+                      Stored securely in Neon Object Storage bucket <code className="bg-[#f0f3ee] px-1 py-0.5 rounded text-[#285c3b]">uploads</code>.
+                    </p>
+                    <input
+                      type="url"
+                      value={teamDraft.photoUrl}
+                      onChange={(e) => setTeamDraft({ ...teamDraft, photoUrl: e.target.value })}
+                      placeholder="Or enter public photo URL"
+                      className={`${cnInput} text-[11px]`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Full Name *">
+                  <input
+                    value={teamDraft.name}
+                    onChange={(e) => setTeamDraft({ ...teamDraft, name: e.target.value })}
+                    className={cnInput}
+                    placeholder="e.g. Anil Sachidanand"
+                  />
+                </Field>
+                <Field label="Designation *">
+                  <input
+                    value={teamDraft.designation}
+                    onChange={(e) => setTeamDraft({ ...teamDraft, designation: e.target.value })}
+                    className={cnInput}
+                    placeholder="e.g. Managing Director & CEO"
+                  />
+                </Field>
+                <Field label="Department">
+                  <input
+                    value={teamDraft.department}
+                    onChange={(e) => setTeamDraft({ ...teamDraft, department: e.target.value })}
+                    className={cnInput}
+                    placeholder="Leadership, Credit, Ops..."
+                  />
+                </Field>
+                <Field label="Display Order">
+                  <input
+                    type="number"
+                    value={teamDraft.order}
+                    onChange={(e) => setTeamDraft({ ...teamDraft, order: parseInt(e.target.value) || 0 })}
+                    className={cnInput}
+                    placeholder="1, 2, 3..."
+                  />
+                </Field>
+              </div>
+
+              <Field label="Bio / Professional Summary (optional)">
+                <textarea
+                  value={teamDraft.bio}
+                  onChange={(e) => setTeamDraft({ ...teamDraft, bio: e.target.value })}
+                  rows={2}
+                  className={`${cnInput} h-auto resize-y py-2 leading-5 font-sans`}
+                  placeholder="Key background, tenure, or strategic focus at India Shelter..."
+                />
+              </Field>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#edf0ec] px-4 py-3 sm:px-5">
+              <button
+                onClick={() => setTeamModal(null)}
+                className="h-8 rounded-md border border-[#e2e7e0] px-3 text-[11px] font-medium text-[#525a50]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTeamMember}
+                disabled={photoUploading}
+                className="flex h-8 items-center gap-1.5 rounded-md bg-[#205c3c] px-4 text-[11px] font-medium text-white shadow-xs hover:bg-[#174b30] disabled:opacity-50"
+              >
+                Save Team Member
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Staff Member Add / Edit Modal */}
+      {staffModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 backdrop-blur-xs"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !staffSubmitting) setStaffModal(null)
+          }}
+        >
+          <section className="w-full max-w-[500px] max-h-[92vh] flex flex-col rounded-lg border border-[#e8ebe6] bg-white shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-[#edf0ec] px-4 py-3.5 sm:px-5 sm:py-4">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#252c23]">
+                  {staffModal === "add" ? "Add New Staff Member" : "Edit Staff Account"}
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[#81897f]">
+                  {staffModal === "add"
+                    ? "Register an employee account, assign their access role, and set initial credentials."
+                    : "Update employee details, corporate email, and role privileges."}
+                </p>
+              </div>
+              <button
+                disabled={staffSubmitting}
+                aria-label="Close"
+                onClick={() => setStaffModal(null)}
+                className="text-[#7e867c] hover:text-[#383f36] p-1"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-3.5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Full Name *">
+                  <input
+                    value={staffDraft.name}
+                    onChange={(e) => setStaffDraft({ ...staffDraft, name: e.target.value })}
+                    className={cnInput}
+                    placeholder="e.g. Rahul Sharma"
+                  />
+                </Field>
+                <Field label="Employee ID *">
+                  <input
+                    value={staffDraft.employeeId}
+                    onChange={(e) => setStaffDraft({ ...staffDraft, employeeId: e.target.value.toUpperCase() })}
+                    disabled={staffModal === "edit"}
+                    className={`${cnInput} uppercase ${staffModal === "edit" ? "bg-[#f5f6f4] opacity-75" : ""}`}
+                    placeholder="e.g. IS-EMP-003"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Corporate Email *">
+                  <input
+                    type="email"
+                    value={staffDraft.email}
+                    onChange={(e) => setStaffDraft({ ...staffDraft, email: e.target.value })}
+                    className={cnInput}
+                    placeholder="e.g. rahul@indianshelter.com"
+                  />
+                </Field>
+                <Field label="Access Role *">
+                  <select
+                    value={staffDraft.role}
+                    onChange={(e) => setStaffDraft({ ...staffDraft, role: e.target.value as "ADMIN" | "EMPLOYEE" })}
+                    className={cnInput}
+                  >
+                    <option value="EMPLOYEE">Employee (Standard Access)</option>
+                    <option value="ADMIN">Administrator (Full Access)</option>
+                  </select>
+                </Field>
+              </div>
+
+              {staffModal === "add" ? (
+                <div className="rounded-md border border-[#e4ebe4] bg-[#f8faf8] p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-[#255c3a] flex items-center gap-1.5">
+                      <Lock size={12} /> Set Initial Password *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[10px] text-[#48634e] hover:text-[#205c3c] flex items-center gap-1"
+                    >
+                      {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                      <span>{showPassword ? "Hide" : "Show"}</span>
+                    </button>
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={staffDraft.password}
+                    onChange={(e) => setStaffDraft({ ...staffDraft, password: e.target.value })}
+                    className={cnInput}
+                    placeholder="Minimum 6 characters (e.g. Shelter@2026)"
+                  />
+                  <p className="text-[10px] text-[#6d796b] leading-tight">
+                    The employee can immediately log in with their Employee ID and this password. They can change it later from Settings, or an Admin can reset it at any time.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-[#2d362c]">Account Status</p>
+                    <p className="text-[10px] text-[#81897f]">
+                      {staffDraft.isActive ? "Active employee can log in to workspace" : "Deactivated employee cannot log in"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStaffDraft({ ...staffDraft, isActive: !staffDraft.isActive })}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      staffDraft.isActive ? "bg-[#205c3c]" : "bg-[#c8cfc7]"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        staffDraft.isActive ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#edf0ec] px-4 py-3 sm:px-5">
+              <button
+                disabled={staffSubmitting}
+                onClick={() => setStaffModal(null)}
+                className="h-8 rounded-md border border-[#e2e7e0] px-3 text-[11px] font-medium text-[#525a50] hover:bg-[#fafbf9]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveStaff}
+                disabled={staffSubmitting}
+                className="flex h-8 items-center gap-1.5 rounded-md bg-[#205c3c] px-4 text-[11px] font-medium text-white shadow-xs hover:bg-[#174b30] disabled:opacity-50"
+              >
+                {staffSubmitting && <Loader2 size={12} className="animate-spin" />}
+                <span>{staffModal === "add" ? "Register Staff Member" : "Save Changes"}</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Admin Change Staff Password Modal */}
+      {passwordStaff && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 backdrop-blur-xs"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !staffSubmitting) setPasswordStaff(null)
+          }}
+        >
+          <section className="w-full max-w-[440px] flex flex-col rounded-lg border border-[#e8ebe6] bg-white shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-[#edf0ec] px-4 py-3.5 sm:px-5 sm:py-4">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#252c23] flex items-center gap-1.5">
+                  <Key size={16} className="text-[#205c3c]" /> Change Staff Password
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[#81897f]">
+                  Reset credentials for <strong className="text-[#252c23]">{passwordStaff.name}</strong> ({passwordStaff.employeeId})
+                </p>
+              </div>
+              <button
+                disabled={staffSubmitting}
+                aria-label="Close"
+                onClick={() => setPasswordStaff(null)}
+                className="text-[#7e867c] hover:text-[#383f36] p-1"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-3.5">
+              <div className="rounded-md border border-[#eef3ee] bg-[#f8faf8] p-3 text-[11px] text-[#4f5c4d] space-y-1">
+                <p className="font-semibold text-[#1e5837] flex items-center gap-1">
+                  <ShieldCheck size={13} /> Administrator Credential Override
+                </p>
+                <p className="text-[10px] text-[#6b776a] leading-relaxed">
+                  As an Administrator, you can update this staff member's password directly. Their previous password is not required.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-medium text-[#535b50]">
+                    New Password *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[10px] text-[#48634e] hover:text-[#205c3c] flex items-center gap-1"
+                  >
+                    {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                    <span>{showPassword ? "Hide" : "Show"}</span>
+                  </button>
+                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={passwordDraft.newPassword}
+                  onChange={(e) => setPasswordDraft({ ...passwordDraft, newPassword: e.target.value })}
+                  className={cnInput}
+                  placeholder="At least 6 characters"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-[#535b50] mb-1">
+                  Confirm New Password *
+                </label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={passwordDraft.confirmPassword}
+                  onChange={(e) => setPasswordDraft({ ...passwordDraft, confirmPassword: e.target.value })}
+                  className={cnInput}
+                  placeholder="Re-type new password"
+                />
+                {passwordDraft.confirmPassword && passwordDraft.newPassword !== passwordDraft.confirmPassword && (
+                  <p className="mt-1 text-[10px] text-[#c0392b]">Passwords do not match</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#edf0ec] px-4 py-3 sm:px-5">
+              <button
+                disabled={staffSubmitting}
+                onClick={() => setPasswordStaff(null)}
+                className="h-8 rounded-md border border-[#e2e7e0] px-3 text-[11px] font-medium text-[#525a50] hover:bg-[#fafbf9]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveStaffPassword}
+                disabled={staffSubmitting || !passwordDraft.newPassword || passwordDraft.newPassword !== passwordDraft.confirmPassword}
+                className="flex h-8 items-center gap-1.5 rounded-md bg-[#205c3c] px-4 text-[11px] font-medium text-white shadow-xs hover:bg-[#174b30] disabled:opacity-50"
+              >
+                {staffSubmitting && <Loader2 size={12} className="animate-spin" />}
+                <span>Update Password</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Floating Feedback Toast */}
       {toast && (
         <div
@@ -1661,6 +2374,7 @@ function FilterInput({
   select,
   options = [],
   type = "text",
+  datalistId,
 }: {
   label: string
   value: string
@@ -1669,11 +2383,27 @@ function FilterInput({
   select?: boolean
   options?: string[]
   type?: "text" | "date"
+  datalistId?: string
 }) {
   return (
     <label className="block">
       <span className="mb-1 block text-[10px] font-medium text-[#6b7469]">{label}</span>
-      {select ? (
+      {datalistId ? (
+        <>
+          <input
+            list={datalistId}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className={cnInput}
+          />
+          <datalist id={datalistId}>
+            {options.map((o) => (
+              <option key={o} value={o} />
+            ))}
+          </datalist>
+        </>
+      ) : select ? (
         <select value={value} onChange={(e) => onChange(e.target.value)} className={cnInput}>
           <option value="">{label === "Frequency" ? "All frequencies" : `All ${label.toLowerCase()}s`}</option>
           {options.map((o) => (
@@ -1751,7 +2481,7 @@ function DashboardView({
             {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
           <h2 className="text-[20px] sm:text-[23px] font-semibold tracking-[-.035em]">
-            Welcome, {user?.name?.split(" ")[0] || "Employee"}
+            Welcome, {user?.role === "ADMIN" ? "Ayush" : "Team"}
           </h2>
           <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
             Live dashboard of India Shelter communication templates and distribution frequencies.
@@ -2025,5 +2755,461 @@ function SettingsView({ user, onLogout }: { user: User | null; onLogout: () => v
         </button>
       </div>
     </div>
+  )
+}
+
+function MeetOurTeamView({
+  team,
+  loading,
+  user,
+  onAdd,
+  onEdit,
+  onDelete,
+}: {
+  team: TeamMember[]
+  loading: boolean
+  user: User | null
+  onAdd: () => void
+  onEdit: (m: TeamMember) => void
+  onDelete: (id: string, name: string) => void
+}) {
+  return (
+    <>
+      <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="mb-1 text-[11px] text-[#7e877c]">Workspace / Organization Directory</p>
+          <h2 className="text-[20px] sm:text-[23px] font-semibold tracking-[-.035em] text-[#1c221b]">
+            Meet Our Team
+          </h2>
+          <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
+            Key leadership and operations team powering India Shelter's nationwide housing finance network.
+          </p>
+        </div>
+        {user?.role === "ADMIN" && (
+          <button
+            onClick={onAdd}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-[#205c3c] px-3.5 text-xs font-medium text-white shadow-xs hover:bg-[#174b30] transition"
+          >
+            <Plus size={14} /> Add Team Member
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          {[1, 2, 3, 4].map((n) => (
+            <div
+              key={n}
+              className="rounded-lg border border-[#e5e9e3] bg-white p-4 shadow-[0_1px_2px_rgba(20,32,20,.02)] animate-pulse"
+            >
+              <div className="h-52 w-full rounded-md bg-[#eef1ed]" />
+              <div className="mt-3.5 h-4 w-3/4 rounded bg-[#eef1ed]" />
+              <div className="mt-2 h-3.5 w-1/2 rounded bg-[#eef1ed]" />
+              <div className="mt-3 h-12 w-full rounded bg-[#f4f7f4]" />
+            </div>
+          ))}
+        </div>
+      ) : team.length === 0 ? (
+        <div className="rounded-lg border border-[#e5e9e3] bg-white p-12 text-center shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-[#f0f4f0] text-[#2c5f3e]">
+            <Users size={22} />
+          </div>
+          <h3 className="text-sm font-semibold text-[#222920]">No Team Members Registered Yet</h3>
+          <p className="mt-1 text-xs text-[#737b71] max-w-sm mx-auto">
+            Get started by adding leadership and operations members with photos uploaded directly to Neon Object Storage.
+          </p>
+          {user?.role === "ADMIN" && (
+            <button
+              onClick={onAdd}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-[#205c3c] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#174b30]"
+            >
+              <Plus size={13} /> Add First Member
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          {team.map((member) => (
+            <div
+              key={member.id}
+              className="group flex flex-col overflow-hidden rounded-lg border border-[#e5e9e3] bg-white shadow-[0_1px_2px_rgba(20,32,20,.025)] transition hover:shadow-md hover:border-[#cbd9ce]"
+            >
+              {/* Member Photo on Top - 100% Full Uncropped View */}
+              <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-gradient-to-b from-[#f3f7f3] via-[#ecf3ec] to-[#e2ebe2] border-b border-[#edf0ec] flex items-center justify-center">
+                {member.photoUrl ? (
+                  <>
+                    <img
+                      src={member.photoUrl}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 size-full object-cover blur-2xl opacity-30 scale-110 pointer-events-none"
+                    />
+                    <img
+                      src={member.photoUrl}
+                      alt={member.name}
+                      className="relative z-10 max-h-full max-w-full object-contain p-2 transition duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        ;(e.target as HTMLElement).style.display = "none"
+                      }}
+                    />
+                  </>
+                ) : (
+                  <div className="flex size-full items-center justify-center bg-[#eef3ee] text-[#55785c]">
+                    <Users size={40} />
+                  </div>
+                )}
+                {member.department && (
+                  <span className="absolute top-2.5 left-2.5 z-20 rounded-full bg-white/95 backdrop-blur-xs px-2.5 py-0.5 text-[10px] font-semibold text-[#2c5d3d] shadow-xs border border-[#d6e3d7]">
+                    {member.department}
+                  </span>
+                )}
+              </div>
+
+              {/* Details with Designation right under Photo */}
+              <div className="flex flex-1 flex-col p-4">
+                <h3 className="text-[15px] font-bold text-[#1f261e] leading-snug tracking-tight">
+                  {member.name}
+                </h3>
+                
+                {/* Highlighted Designation underneath photo and name */}
+                <div className="mt-1">
+                  <span className="inline-block rounded-md bg-[#eef6f0] border border-[#d6e7d9] px-2 py-0.5 text-[11px] font-semibold text-[#1e5837]">
+                    {member.designation}
+                  </span>
+                </div>
+
+                {member.bio && (
+                  <p className="mt-2.5 text-[11px] text-[#555d52] line-clamp-3 leading-relaxed flex-1">
+                    {member.bio}
+                  </p>
+                )}
+
+                {/* Admin Management Controls */}
+                {user?.role === "ADMIN" && (
+                  <div className="mt-4 flex items-center justify-end gap-1.5 border-t border-[#f0f3ef] pt-3">
+                    <button
+                      onClick={() => onEdit(member)}
+                      className="inline-flex h-7 items-center gap-1 rounded border border-[#e2e7e0] bg-white px-2.5 text-[10px] font-medium text-[#4e584d] hover:bg-[#f6f8f5] transition"
+                    >
+                      <Edit3 size={11} /> Edit
+                    </button>
+                    <button
+                      onClick={() => onDelete(member.id, member.name)}
+                      className="inline-flex h-7 items-center gap-1 rounded border border-[#eed0cc] bg-[#fff8f7] px-2 text-[10px] font-medium text-[#a1483c] hover:bg-[#fae8e6] transition"
+                    >
+                      <Trash2 size={11} /> Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+function StaffManagementView({
+  staffList,
+  loading,
+  currentUser,
+  search,
+  setSearch,
+  roleFilter,
+  setRoleFilter,
+  statusFilter,
+  setStatusFilter,
+  onAddStaff,
+  onEditStaff,
+  onChangePassword,
+  onToggleStatus,
+  onRefresh,
+}: {
+  staffList: User[]
+  loading: boolean
+  currentUser: User | null
+  search: string
+  setSearch: (s: string) => void
+  roleFilter: "ALL" | "ADMIN" | "EMPLOYEE"
+  setRoleFilter: (r: "ALL" | "ADMIN" | "EMPLOYEE") => void
+  statusFilter: "ALL" | "ACTIVE" | "INACTIVE"
+  setStatusFilter: (s: "ALL" | "ACTIVE" | "INACTIVE") => void
+  onAddStaff: () => void
+  onEditStaff: (u: User) => void
+  onChangePassword: (u: User) => void
+  onToggleStatus: (u: User) => void
+  onRefresh: () => void
+}) {
+  const filtered = staffList.filter((s) => {
+    if (roleFilter !== "ALL" && s.role !== roleFilter) return false
+    if (statusFilter === "ACTIVE" && !s.isActive) return false
+    if (statusFilter === "INACTIVE" && s.isActive) return false
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      const matchName = s.name.toLowerCase().includes(q)
+      const matchId = s.employeeId.toLowerCase().includes(q)
+      const matchEmail = s.email.toLowerCase().includes(q)
+      return matchName || matchId || matchEmail
+    }
+    return true
+  })
+
+  const totalCount = staffList.length
+  const adminCount = staffList.filter((s) => s.role === "ADMIN").length
+  const activeCount = staffList.filter((s) => s.isActive).length
+  const inactiveCount = totalCount - activeCount
+
+  return (
+    <>
+      {/* Header with Title and Primary Actions */}
+      <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#cbd9c8] bg-[#f4f8f4] px-2.5 py-0.5 text-[10px] font-semibold text-[#1e5836]">
+              <ShieldCheck size={11} /> Admin Only
+            </span>
+            <p className="text-[11px] text-[#7e877c]">Workspace / Staff Directory</p>
+          </div>
+          <h2 className="mt-1 text-[20px] sm:text-[23px] font-semibold tracking-[-.035em] text-[#1c221b]">
+            Staff & Employee Accounts
+          </h2>
+          <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
+            Add employee credentials, set initial passwords, and change or reset login access.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRefresh}
+            aria-label="Refresh Staff"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-[#e2e7e0] bg-white px-2.5 text-xs text-[#525a50] hover:bg-[#fafbf9]"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+          <button
+            onClick={onAddStaff}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-[#205c3c] px-3.5 text-xs font-medium text-white shadow-xs hover:bg-[#174b30] transition"
+          >
+            <UserPlus size={14} /> Add New Staff
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5">
+        <div className="rounded-lg border border-[#e5e9e3] bg-white p-3.5 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8b9389]">Total Staff</p>
+          <p className="mt-1 text-xl font-bold text-[#1f261e]">{totalCount}</p>
+          <p className="mt-0.5 text-[10px] text-[#737b71]">Registered accounts</p>
+        </div>
+        <div className="rounded-lg border border-[#e5e9e3] bg-white p-3.5 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8b9389]">Administrators</p>
+          <p className="mt-1 text-xl font-bold text-[#1f261e]">{adminCount}</p>
+          <p className="mt-0.5 text-[10px] text-[#737b71]">Full access rights</p>
+        </div>
+        <div className="rounded-lg border border-[#e5e9e3] bg-white p-3.5 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8b9389]">Active Accounts</p>
+          <p className="mt-1 text-xl font-bold text-[#205c3c]">{activeCount}</p>
+          <p className="mt-0.5 text-[10px] text-[#737b71]">Can log in & edit</p>
+        </div>
+        <div className="rounded-lg border border-[#e5e9e3] bg-white p-3.5 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#8b9389]">Deactivated</p>
+          <p className="mt-1 text-xl font-bold text-[#899187]">{inactiveCount}</p>
+          <p className="mt-0.5 text-[10px] text-[#737b71]">Access suspended</p>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-[#e5e9e3] bg-white p-3 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#91998f]" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search staff by Name, Employee ID, or Email..."
+            className="h-8 w-full rounded-md border border-[#e5e7eb] bg-[#fafbf9] pl-8 pr-3 text-[12px] text-[#242923] outline-none transition placeholder:text-[#a2a69f] focus:border-[#78927d] focus:bg-white"
+          />
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value as "ALL" | "ADMIN" | "EMPLOYEE")}
+            className="h-8 rounded-md border border-[#e5e7eb] bg-white px-2.5 text-[11px] text-[#4b5449] outline-none"
+          >
+            <option value="ALL">All Roles</option>
+            <option value="ADMIN">Administrators</option>
+            <option value="EMPLOYEE">Employees</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}
+            className="h-8 rounded-md border border-[#e5e7eb] bg-white px-2.5 text-[11px] text-[#4b5449] outline-none"
+          >
+            <option value="ALL">All Status</option>
+            <option value="ACTIVE">Active Only</option>
+            <option value="INACTIVE">Deactivated</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Staff Table */}
+      <div className="overflow-hidden rounded-lg border border-[#e5e9e3] bg-white shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+        {loading ? (
+          <div className="p-8 text-center text-xs text-[#737b71]">
+            <Loader2 size={22} className="mx-auto mb-2 animate-spin text-[#205c3c]" />
+            Loading staff directory...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center">
+            <UserX size={32} className="mx-auto text-[#9fa89d] mb-2" />
+            <h3 className="text-sm font-semibold text-[#222920]">No Staff Members Found</h3>
+            <p className="mt-1 text-xs text-[#737b71]">
+              {search || roleFilter !== "ALL" || statusFilter !== "ALL"
+                ? "Try adjusting your filters or search terms."
+                : "Get started by adding your first employee."}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left">
+              <thead className="bg-[#fafbf9] text-[10px] uppercase tracking-wide text-[#899187] border-b border-[#edf0ec]">
+                <tr>
+                  <th className="px-4 py-3">Staff Member</th>
+                  <th className="px-3 py-3">Employee ID</th>
+                  <th className="px-3 py-3">Role</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Templates</th>
+                  <th className="px-3 py-3">Created</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f2ef]">
+                {filtered.map((staff) => (
+                  <tr key={staff.id} className="hover:bg-[#fafbf9] transition">
+                    {/* Staff Member (Avatar + Name + Email) */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#eef4ee] text-[11px] font-bold text-[#205c3c]">
+                          {staff.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-semibold text-[#1f261e] truncate">{staff.name}</p>
+                          <p className="text-[11px] text-[#788275] truncate">{staff.email}</p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Employee ID */}
+                    <td className="px-3 py-3">
+                      <span className="font-mono text-[11px] font-medium text-[#2d362c] bg-[#f2f5f2] px-2 py-0.5 rounded border border-[#dfe5df]">
+                        {staff.employeeId}
+                      </span>
+                    </td>
+
+                    {/* Role */}
+                    <td className="px-3 py-3">
+                      {staff.role === "ADMIN" ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[#edf6ef] border border-[#cfdfd1] px-2 py-0.5 text-[10px] font-semibold text-[#1e5836]">
+                          <ShieldCheck size={11} /> Admin
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-md bg-[#f4f5f3] border border-[#e2e5e1] px-2 py-0.5 text-[10px] font-medium text-[#5c645a]">
+                          Employee
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-3 py-3">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          staff.isActive
+                            ? "bg-[#edf7ee] text-[#24693b]"
+                            : "bg-[#f5f5f4] text-[#787877]"
+                        }`}
+                      >
+                        <span
+                          className={`size-1.5 rounded-full ${
+                            staff.isActive ? "bg-[#2ea043]" : "bg-[#8c918a]"
+                          }`}
+                        />
+                        {staff.isActive ? "Active" : "Deactivated"}
+                      </span>
+                    </td>
+
+                    {/* Templates Count */}
+                    <td className="px-3 py-3 text-[11px] text-[#555d52]">
+                      {staff._count?.createdTemplates || 0}
+                    </td>
+
+                    {/* Created Date */}
+                    <td className="px-3 py-3 text-[10px] text-[#788275]">
+                      {staff.createdAt
+                        ? new Date(staff.createdAt).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "—"}
+                    </td>
+
+                    {/* Action Buttons */}
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        {/* Change Password Button */}
+                        <button
+                          onClick={() => onChangePassword(staff)}
+                          title="Change / Reset Password"
+                          className="inline-flex h-7 items-center gap-1 rounded-md border border-[#d6e2d8] bg-[#f8faf8] px-2 text-[10px] font-medium text-[#1e5836] hover:bg-[#eef5ee] transition"
+                        >
+                          <Key size={11} />
+                          <span>Change Password</span>
+                        </button>
+
+                        {/* Edit Staff Button */}
+                        <button
+                          onClick={() => onEditStaff(staff)}
+                          title="Edit Details"
+                          className="inline-flex h-7 items-center gap-1 rounded-md border border-[#e2e7e0] bg-white px-2 text-[10px] font-medium text-[#4e584d] hover:bg-[#f6f8f5] transition"
+                        >
+                          <Edit3 size={11} />
+                          <span>Edit</span>
+                        </button>
+
+                        {/* Deactivate / Activate Button */}
+                        {staff.id !== currentUser?.id && (
+                          <button
+                            onClick={() => onToggleStatus(staff)}
+                            title={staff.isActive ? "Deactivate Account" : "Activate Account"}
+                            className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-medium transition ${
+                              staff.isActive
+                                ? "border-[#eed0cc] bg-[#fff8f7] text-[#a1483c] hover:bg-[#fae8e6]"
+                                : "border-[#cfdfd1] bg-[#edf6ef] text-[#1e5836] hover:bg-[#e2efe4]"
+                            }`}
+                          >
+                            {staff.isActive ? (
+                              <>
+                                <UserX size={11} />
+                                <span>Deactivate</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck size={11} />
+                                <span>Activate</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
   )
 }

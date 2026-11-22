@@ -158,7 +158,7 @@ export default function LoginPage() {
           </form>
 
           {/* Quick Credential Fillers for convenience */}
-          <div className="mt-6 rounded-md border border-[#e4eae2] bg-[#fbfcfb] p-3">
+          {/* <div className="mt-6 rounded-md border border-[#e4eae2] bg-[#fbfcfb] p-3">
             <div className="flex items-center gap-1.5 text-[10px] font-semibold text-[#486b4f]">
               <KeyRound size={12} /> Test Credentials
             </div>
@@ -184,9 +184,11 @@ export default function LoginPage() {
                 <span className="font-mono text-[10px] text-[#717b70]">Employee@123</span>
               </button>
             </div>
-          </div>
+          </div> */}
         </div>
-        <p className="text-center text-[10px] text-[#a0a69d]">© India Shelter Finance Corporation Limited</p>
+        <p className="text-center text-[11px] text-[#8e968b]">
+          © India Shelter Finance Corporation Limited · <strong className="font-bold text-[#1e5837]">Created by Ayush Vishwakarma</strong>
+        </p>
       </section>
     </main>
   )

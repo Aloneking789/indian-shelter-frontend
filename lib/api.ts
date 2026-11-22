@@ -12,6 +12,9 @@ export interface User {
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+  _count?: {
+    createdTemplates?: number;
+  };
 }
 
 export interface Template {
@@ -34,6 +37,23 @@ export interface Template {
   importBatch?: { id: string; fileName: string; createdAt: string; status?: string } | null;
   // UI helpers
   favorite?: boolean;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  designation: string;
+  photoUrl: string;
+  bio?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  department?: string | null;
+  order: number;
+  isActive: boolean;
+  createdById?: string | null;
+  createdBy?: { id: string; name: string; employeeId: string } | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Pagination {
@@ -118,7 +138,10 @@ export interface ImportConfirmData {
   errors?: Array<{ row: number; reason: string }>;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://indian-shelter-backend.vercel.app/api";
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://indian-shelter-backend.vercel.app/api";
+
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api";
 
 export const tokenStorage = {
   get: (): string | null => {
@@ -342,6 +365,132 @@ export const api = {
   dashboard: {
     getOverview: async (): Promise<{ success: boolean; data: DashboardOverview }> => {
       return apiRequest<{ success: boolean; data: DashboardOverview }>("/dashboard/overview");
+    },
+  },
+
+  // Meet Our Team
+  team: {
+    getAll: async (department?: string): Promise<{ success: boolean; count: number; data: TeamMember[] }> => {
+      const q = department ? `?department=${encodeURIComponent(department)}` : "";
+      return apiRequest<{ success: boolean; count: number; data: TeamMember[] }>(`/team${q}`);
+    },
+
+    getById: async (id: string): Promise<{ success: boolean; data: TeamMember }> => {
+      return apiRequest<{ success: boolean; data: TeamMember }>(`/team/${id}`);
+    },
+
+    create: async (payload: {
+      name: string;
+      designation: string;
+      photoUrl: string;
+      bio?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      department?: string | null;
+      order?: number;
+      isActive?: boolean;
+    }): Promise<{ success: boolean; message: string; data: TeamMember }> => {
+      return apiRequest<{ success: boolean; message: string; data: TeamMember }>("/team", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    update: async (id: string, payload: Partial<TeamMember>): Promise<{ success: boolean; message: string; data: TeamMember }> => {
+      return apiRequest<{ success: boolean; message: string; data: TeamMember }>(`/team/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    delete: async (id: string): Promise<{ success: boolean; message: string }> => {
+      return apiRequest<{ success: boolean; message: string }>(`/team/${id}`, {
+        method: "DELETE",
+      });
+    },
+  },
+
+  // Staff & Employee Account Management (Admin only)
+  staff: {
+    getAll: async (params?: { search?: string; role?: string; status?: string }): Promise<{ success: boolean; count: number; data: User[] }> => {
+      const sp = new URLSearchParams();
+      if (params?.search) sp.set("search", params.search);
+      if (params?.role) sp.set("role", params.role);
+      if (params?.status) sp.set("status", params.status);
+      const query = sp.toString() ? `?${sp.toString()}` : "";
+      return apiRequest<{ success: boolean; count: number; data: User[] }>(`/staff${query}`);
+    },
+
+    create: async (payload: {
+      employeeId: string;
+      name: string;
+      email: string;
+      role: "ADMIN" | "EMPLOYEE";
+      password: string;
+    }): Promise<{ success: boolean; message: string; data: User }> => {
+      return apiRequest<{ success: boolean; message: string; data: User }>("/staff", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    changePassword: async (staffId: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+      return apiRequest<{ success: boolean; message: string }>(`/staff/${staffId}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ newPassword }),
+      });
+    },
+
+    update: async (staffId: string, payload: Partial<User>): Promise<{ success: boolean; message: string; data: User }> => {
+      return apiRequest<{ success: boolean; message: string; data: User }>(`/staff/${staffId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    delete: async (staffId: string): Promise<{ success: boolean; message: string }> => {
+      return apiRequest<{ success: boolean; message: string }>(`/staff/${staffId}`, {
+        method: "DELETE",
+      });
+    },
+  },
+
+  // Neon Object Storage
+  storage: {
+    upload: async (file: File, folder = "team"): Promise<{ success: boolean; message: string; data: { bucket: string; key: string; url: string; fileName: string; size: number; contentType: string } }> => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", folder);
+      return apiRequest<{ success: boolean; message: string; data: { bucket: string; key: string; url: string; fileName: string; size: number; contentType: string } }>("/storage/upload", {
+        method: "POST",
+        body: formData,
+      });
+    },
+
+    uploadText: async (key: string, content: string | object, contentType = "text/plain"): Promise<{ success: boolean; message: string; data: { bucket: string; key: string; url: string } }> => {
+      return apiRequest("/storage/text", {
+        method: "POST",
+        body: JSON.stringify({ key, content, contentType }),
+      });
+    },
+
+    listFiles: async (prefix = ""): Promise<{ success: boolean; bucket: string; count: number; data: string[] }> => {
+      return apiRequest(`/storage/files?prefix=${encodeURIComponent(prefix)}`);
+    },
+
+    getUrl: async (key: string, expiresIn = 3600): Promise<{ success: boolean; key: string; url: string; expiresInSeconds: number }> => {
+      return apiRequest(`/storage/url?key=${encodeURIComponent(key)}&expiresIn=${expiresIn}`);
+    },
+
+    readFile: async (key: string): Promise<{ success: boolean; key: string; content: string }> => {
+      return apiRequest(`/storage/read?key=${encodeURIComponent(key)}`);
+    },
+
+    deleteFile: async (key: string): Promise<{ success: boolean; message: string }> => {
+      return apiRequest("/storage/file", {
+        method: "DELETE",
+        body: JSON.stringify({ key }),
+      });
     },
   },
 };

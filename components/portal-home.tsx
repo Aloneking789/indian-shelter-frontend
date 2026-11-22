@@ -10,6 +10,7 @@ import { InteractiveCalculator } from "./landing/interactive-calculator"
 import { LoanJourneySection } from "./landing/loan-journey-section"
 import { UnderwritingEdge } from "./landing/underwriting-edge"
 import { InternalPortalBanner } from "./landing/internal-portal-banner"
+import { MeetOurTeamSection } from "./landing/meet-our-team-section"
 import { FaqSection } from "./landing/faq-section"
 import { SiteFooter } from "./landing/site-footer"
 
@@ -73,6 +74,9 @@ export function PortalHome() {
 
         {/* 8. Dedicated Employee Workspace & Internal Operations Portal Banner */}
         <InternalPortalBanner />
+
+        {/* 8.5 Meet Our Team: Leadership & Operations Driving India Shelter */}
+        <MeetOurTeamSection />
 
         {/* 9. Frequently Asked Questions (Accordion) */}
         <FaqSection />

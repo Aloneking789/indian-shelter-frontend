@@ -151,6 +151,10 @@ export function SiteHeader({ onOpenApply }: SiteHeaderProps) {
               Why India Shelter
             </a>
 
+            <a href="#team" className="hover:text-[#14472d] transition-colors">
+              Meet Our Team
+            </a>
+
             <a href="#branches" className="hover:text-[#14472d] transition-colors flex items-center gap-1">
               <MapPin size={13} className="text-[#728574]" />
               <span>215+ Branches</span>
@@ -227,6 +231,13 @@ export function SiteHeader({ onOpenApply }: SiteHeaderProps) {
                 className="py-2 px-3 rounded-lg hover:bg-[#f2f6f1] text-[#243326] font-medium"
               >
                 Why India Shelter (Informal Income Approval)
+              </a>
+              <a 
+                href="#team" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 rounded-lg hover:bg-[#f2f6f1] text-[#243326] font-medium"
+              >
+                Meet Our Team (Leadership & Operations)
               </a>
               <a 
                 href="#faq" 

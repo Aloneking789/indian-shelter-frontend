@@ -13,6 +13,7 @@ import {
   FileCheck2,
   Sparkles
 } from "lucide-react"
+import { Card3D } from "../ui/card-3d"
 
 interface LoanProductsSectionProps {
   onOpenApply: (productTitle?: string) => void
@@ -153,15 +154,15 @@ export function LoanProductsSection({ onOpenApply, onSelectProductForCalculator 
           </div>
         </div>
 
-        {/* Product Cards Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+        {/* Product Cards Grid with 3D Perspective */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 perspective-1000">
           {filteredProducts.map((p) => {
             const Icon = p.icon
             return (
-              <article
-                key={p.id}
-                className="card-hover group relative flex flex-col justify-between rounded-2xl border border-[#dfe5dd] bg-[#fcfbf9] p-7 shadow-xs hover:border-[#1d5c3b] hover:shadow-lg"
-              >
+              <Card3D key={p.id} maxRotation={5} scale={1.018} className="h-full">
+                <article
+                  className="group relative flex h-full flex-col justify-between rounded-2xl border border-[#dfe5dd] bg-[#fcfbf9] p-7 shadow-xs hover:border-[#1d5c3b] hover:shadow-xl transition-all"
+                >
                 <div>
                   {/* Top card header */}
                   <div className="flex items-start justify-between gap-4">
@@ -227,8 +228,9 @@ export function LoanProductsSection({ onOpenApply, onSelectProductForCalculator 
                   </button>
                 </div>
               </article>
-            )
-          })}
+            </Card3D>
+          )
+        })}
         </div>
       </div>
     </section>

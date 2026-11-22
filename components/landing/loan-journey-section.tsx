@@ -12,6 +12,7 @@ import {
   MapPin,
   ChevronRight
 } from "lucide-react"
+import { Card3D } from "../ui/card-3d"
 
 const steps = [
   {
@@ -136,66 +137,72 @@ export function LoanJourneySection({ onOpenApply }: LoanJourneySectionProps) {
           </div>
         </div>
 
-        {/* 4 Interactive Step Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 4 Interactive Step Cards with 3D Elevation */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 perspective-1000">
           {steps.map((item, idx) => {
             const Icon = item.icon
             const isSelected = activeStep === idx
             return (
-              <div
+              <Card3D
                 key={item.step}
-                onClick={() => setActiveStep(idx)}
-                className={`card-hover cursor-pointer rounded-2xl border p-6 transition-all duration-300 flex flex-col justify-between select-none ${
-                  isSelected
-                    ? "border-[#1c5c3b] bg-[#f2f8f2] shadow-md ring-2 ring-[#1c5c3b]/30"
-                    : "border-[#e0e6dd] bg-[#fbfbf9] hover:border-[#b8ccb6] opacity-90 hover:opacity-100"
-                }`}
+                maxRotation={6}
+                scale={1.025}
+                className="h-full"
               >
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className={`font-mono text-2xl font-extrabold transition-colors duration-200 ${
-                      isSelected ? "text-[#14472d]" : "text-[#778978]"
-                    }`}>
-                      {item.step}
-                    </span>
-                    <span className="rounded-md bg-white border border-[#d6dfd4] px-2 py-0.5 text-[10px] font-mono font-semibold text-[#3b5540] tabular-nums">
-                      {item.timeframe}
-                    </span>
-                  </div>
-
-                  <div className={`flex size-11 items-center justify-center rounded-xl transition-all duration-300 mb-3 shadow-2xs ${
+                <div
+                  onClick={() => setActiveStep(idx)}
+                  className={`cursor-pointer rounded-2xl border p-6 transition-all duration-300 flex h-full flex-col justify-between select-none ${
                     isSelected
-                      ? "bg-[#14472d] text-white scale-105"
-                      : "bg-white border border-[#d6dfd4] text-[#1a5b37]"
-                  }`}>
-                    <Icon size={22} />
+                      ? "border-[#1c5c3b] bg-[#f2f8f2] shadow-md ring-2 ring-[#1c5c3b]/30"
+                      : "border-[#e0e6dd] bg-[#fbfbf9] hover:border-[#b8ccb6] opacity-90 hover:opacity-100"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className={`font-mono text-2xl font-extrabold transition-colors duration-200 ${
+                        isSelected ? "text-[#14472d]" : "text-[#778978]"
+                      }`}>
+                        {item.step}
+                      </span>
+                      <span className="rounded-md bg-white border border-[#d6dfd4] px-2 py-0.5 text-[10px] font-mono font-semibold text-[#3b5540] tabular-nums">
+                        {item.timeframe}
+                      </span>
+                    </div>
+
+                    <div className={`flex size-11 items-center justify-center rounded-xl transition-all duration-300 mb-3 shadow-2xs ${
+                      isSelected
+                        ? "bg-[#14472d] text-white scale-105"
+                        : "bg-white border border-[#d6dfd4] text-[#1a5b37]"
+                    }`}>
+                      <Icon size={22} />
+                    </div>
+
+                    <h3 className="text-base font-bold text-[#143221]">
+                      {item.title}
+                    </h3>
+                    <p className="mt-1 text-xs font-semibold text-[#256840]">
+                      {item.tagline}
+                    </p>
+                    <p className="mt-2.5 text-xs text-[#5f7060] leading-relaxed">
+                      {item.description}
+                    </p>
                   </div>
 
-                  <h3 className="text-base font-bold text-[#143221]">
-                    {item.title}
-                  </h3>
-                  <p className="mt-1 text-xs font-semibold text-[#256840]">
-                    {item.tagline}
-                  </p>
-                  <p className="mt-2.5 text-xs text-[#5f7060] leading-relaxed">
-                    {item.description}
-                  </p>
+                  <div className="mt-5 pt-3.5 border-t border-[#e2eae0]">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#48604d] mb-1.5">
+                      What we complete:
+                    </span>
+                    <ul className="space-y-1.5 text-[11px] text-[#4f6050]">
+                      {item.deliverables.map((d, dIdx) => (
+                        <li key={dIdx} className="flex items-start gap-1.5">
+                          <CheckCircle2 size={13} className="text-[#2b794d] shrink-0 mt-0.5" />
+                          <span>{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-
-                <div className="mt-5 pt-3.5 border-t border-[#e2eae0]">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#48604d] mb-1.5">
-                    What we complete:
-                  </span>
-                  <ul className="space-y-1.5 text-[11px] text-[#4f6050]">
-                    {item.deliverables.map((d, dIdx) => (
-                      <li key={dIdx} className="flex items-start gap-1.5">
-                        <CheckCircle2 size={13} className="text-[#2b794d] shrink-0 mt-0.5" />
-                        <span>{d}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              </Card3D>
             )
           })}
         </div>

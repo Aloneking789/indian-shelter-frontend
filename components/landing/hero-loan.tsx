@@ -12,8 +12,11 @@ import {
   Building2, 
   BadgePercent,
   FileCheck2,
-  LockKeyhole
+  LockKeyhole,
+  Zap,
+  Users
 } from "lucide-react"
+import { Card3D } from "../ui/card-3d"
 
 interface HeroLoanProps {
   onOpenApply: () => void
@@ -128,12 +131,24 @@ export function HeroLoan({ onOpenApply }: HeroLoanProps) {
             </div>
           </div>
 
-          {/* Right Column: Tactile Emil-Style Live Calculator Widget */}
-          <div className="relative">
-            {/* Glowing backdrop card effect */}
-            <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-[#1b5e39]/20 to-[#c59b48]/20 blur-xl opacity-60" />
+          {/* Right Column: Tactile 3D Live Calculator Widget with Micro-Animations */}
+          <div className="relative perspective-1000">
+            {/* Ambient glowing backdrop */}
+            <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-[#1b5e39]/25 via-[#2a8550]/15 to-[#c59b48]/20 blur-2xl opacity-75 animate-pulse-glow" />
 
-            <div className="relative rounded-2xl border border-[#d2dcd0] bg-white p-6 shadow-xl sm:p-7">
+            {/* Floating 3D Micro-Badges */}
+            <div className="hidden sm:flex absolute -top-4 -right-3 z-30 items-center gap-1.5 rounded-full border border-[#b8dabf] bg-white/95 px-3 py-1 shadow-lg backdrop-blur-md animate-float-3d">
+              <Zap size={13} className="text-[#207545] fill-[#207545]" />
+              <span className="text-[11px] font-bold text-[#143d24]">Fast 48h Sanction</span>
+            </div>
+
+            <div className="hidden sm:flex absolute -bottom-3 -left-3 z-30 items-center gap-1.5 rounded-full border border-[#cbd9c7] bg-white/95 px-3 py-1 shadow-lg backdrop-blur-md animate-float-reverse-3d">
+              <span className="flex size-2 rounded-full bg-[#34a853] animate-ping" />
+              <span className="text-[11px] font-bold text-[#143d24]">1,15,000+ Happy Families</span>
+            </div>
+
+            <Card3D maxRotation={6} scale={1.015} className="w-full">
+              <div className="relative rounded-2xl border border-[#d2dcd0] bg-white/98 p-6 shadow-xl sm:p-7 backdrop-blur-xs">
               
               {/* Header inside widget */}
               <div className="flex items-center justify-between border-b border-[#e9eee7] pb-4">
@@ -253,6 +268,7 @@ export function HeroLoan({ onOpenApply }: HeroLoanProps) {
                 *EMI is indicative. Final interest rate and tenure are subject to property appraisal & credit underwriting.
               </p>
             </div>
+            </Card3D>
           </div>
         </div>
       </div>

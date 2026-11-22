@@ -1,6 +1,7 @@
 "use client"
 
 import { Building2, Users2, Landmark, Clock, Award, ShieldCheck } from "lucide-react"
+import { Card3D } from "../ui/card-3d"
 
 const stats = [
   {
@@ -53,28 +54,32 @@ export function StatsBanner() {
           </p>
         </div>
 
-        {/* 5-Column Grid */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {/* 5-Column Grid with GPU-Composited 3D Depth */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 perspective-1000">
           {stats.map(({ value, label, description, icon: Icon }) => (
-            <div 
+            <Card3D
               key={label}
-              className="card-hover rounded-2xl border border-[#dde4d9] bg-white p-5 shadow-xs flex flex-col justify-between"
+              maxRotation={8}
+              scale={1.03}
+              className="h-full"
             >
-              <div>
-                <div className="flex size-9 items-center justify-center rounded-lg bg-[#edf5ee] text-[#1b5e39] mb-4">
-                  <Icon size={18} />
+              <div className="h-full rounded-2xl border border-[#dde4d9] bg-white p-5 shadow-xs transition hover:shadow-md hover:border-[#b8cdb6] flex flex-col justify-between">
+                <div>
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-[#edf5ee] text-[#1b5e39] mb-4">
+                    <Icon size={18} />
+                  </div>
+                  <div className="font-mono text-2xl font-extrabold tracking-tight text-[#11311f]">
+                    {value}
+                  </div>
+                  <h3 className="mt-1 text-xs font-bold text-[#1e3c2b] leading-snug">
+                    {label}
+                  </h3>
                 </div>
-                <div className="font-mono text-2xl font-extrabold tracking-tight text-[#11311f]">
-                  {value}
-                </div>
-                <h3 className="mt-1 text-xs font-bold text-[#1e3c2b] leading-snug">
-                  {label}
-                </h3>
+                <p className="mt-2 text-[11px] text-[#69796a] leading-relaxed">
+                  {description}
+                </p>
               </div>
-              <p className="mt-2 text-[11px] text-[#69796a] leading-relaxed">
-                {description}
-              </p>
-            </div>
+            </Card3D>
           ))}
         </div>
       </div>

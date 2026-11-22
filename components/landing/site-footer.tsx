@@ -159,6 +159,15 @@ export function SiteFooter() {
           <p>
             © {new Date().getFullYear()} India Shelter Finance Corporation Limited. All rights reserved.
           </p>
+
+          {/* Prominent Creator Attribution */}
+          <div className="flex items-center gap-1.5 text-xs text-white/90">
+            <span>Designed & Engineered ·</span>
+            <strong className="font-extrabold text-[#8fe2af] tracking-wide text-[13px]">
+              Created by Ayush Vishwakarma
+            </strong>
+          </div>
+
           <div className="flex flex-wrap items-center gap-4 text-white/60">
             <span>Disclaimer</span>
             <span>·</span>
