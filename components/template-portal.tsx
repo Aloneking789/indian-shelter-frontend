@@ -456,6 +456,10 @@ export function TemplatePortal() {
 
   // Open Edit Modal
   const openEditModal = (t: Template) => {
+    if (user?.role === "EMPLOYEE") {
+      notify("Employees have read-only access. Only Administrators can edit templates.")
+      return
+    }
     setModalError("")
     setDraft({
       id: t.id,
@@ -475,6 +479,11 @@ export function TemplatePortal() {
   // Save / Update Template
   const handleSaveTemplate = async () => {
     setModalError("")
+
+    if (modal === "edit" && user?.role === "EMPLOYEE") {
+      setModalError("Employees have read-only access and cannot edit templates.")
+      return
+    }
 
     if (!draft.dltTemplateId.trim()) {
       setModalError("DLT Template ID is required")
@@ -1293,12 +1302,14 @@ export function TemplatePortal() {
                           >
                             <ExternalLink size={11} /> View
                           </button>
-                          <button
-                            onClick={() => openEditModal(t)}
-                            className="inline-flex h-7 items-center gap-1 rounded border border-[#e2e7e0] bg-white px-2.5 text-[10px] font-medium text-[#4e584d] hover:bg-[#f6f8f5]"
-                          >
-                            <Edit3 size={11} /> Edit
-                          </button>
+                          {user?.role !== "EMPLOYEE" && (
+                            <button
+                              onClick={() => openEditModal(t)}
+                              className="inline-flex h-7 items-center gap-1 rounded border border-[#e2e7e0] bg-white px-2.5 text-[10px] font-medium text-[#4e584d] hover:bg-[#f6f8f5]"
+                            >
+                              <Edit3 size={11} /> Edit
+                            </button>
+                          )}
                           {user?.role === "ADMIN" && (
                             <button
                               onClick={() => handleDeactivate(t.id)}
@@ -1482,13 +1493,15 @@ export function TemplatePortal() {
                                   >
                                     <ExternalLink size={14} />
                                   </button>
-                                  <button
-                                    title="Edit template"
-                                    onClick={() => openEditModal(t)}
-                                    className="flex size-7 items-center justify-center rounded text-[#71796f] hover:bg-[#eef2ed] hover:text-[#205c3c]"
-                                  >
-                                    <Edit3 size={14} />
-                                  </button>
+                                  {user?.role !== "EMPLOYEE" && (
+                                    <button
+                                      title="Edit template"
+                                      onClick={() => openEditModal(t)}
+                                      className="flex size-7 items-center justify-center rounded text-[#71796f] hover:bg-[#eef2ed] hover:text-[#205c3c]"
+                                    >
+                                      <Edit3 size={14} />
+                                    </button>
+                                  )}
                                   {user?.role === "ADMIN" && (
                                     <button
                                       title="Deactivate template"
@@ -1748,12 +1761,14 @@ export function TemplatePortal() {
                     Deactivate
                   </button>
                 )}
-                <button
-                  onClick={() => openEditModal(selected)}
-                  className="h-8 rounded bg-[#205c3c] px-3.5 text-[11px] font-medium text-white hover:bg-[#174b30]"
-                >
-                  Edit template
-                </button>
+                {user?.role !== "EMPLOYEE" && (
+                  <button
+                    onClick={() => openEditModal(selected)}
+                    className="h-8 rounded bg-[#205c3c] px-3.5 text-[11px] font-medium text-white hover:bg-[#174b30]"
+                  >
+                    Edit template
+                  </button>
+                )}
               </div>
             </div>
           </section>
