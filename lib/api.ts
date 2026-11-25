@@ -56,6 +56,20 @@ export interface TeamMember {
   updatedAt: string;
 }
 
+export interface ResourceLink {
+  id: string;
+  category: "POLICY" | "PMAY";
+  title: string;
+  url: string;
+  description?: string | null;
+  order: number;
+  isActive: boolean;
+  createdById?: string | null;
+  createdBy?: { id: string; name: string; employeeId: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Pagination {
   totalRecords: number;
   totalPages: number;
@@ -450,6 +464,48 @@ export const api = {
 
     delete: async (staffId: string): Promise<{ success: boolean; message: string }> => {
       return apiRequest<{ success: boolean; message: string }>(`/staff/${staffId}`, {
+        method: "DELETE",
+      });
+    },
+  },
+
+  // Resource Links (Policies and PMAY)
+  links: {
+    getAll: async (category?: "POLICY" | "PMAY", includeInactive = false): Promise<{ success: boolean; count: number; data: ResourceLink[] }> => {
+      const sp = new URLSearchParams();
+      if (category) sp.set("category", category);
+      if (includeInactive) sp.set("includeInactive", "true");
+      const q = sp.toString() ? `?${sp.toString()}` : "";
+      return apiRequest<{ success: boolean; count: number; data: ResourceLink[] }>(`/links${q}`);
+    },
+
+    getById: async (id: string): Promise<{ success: boolean; data: ResourceLink }> => {
+      return apiRequest<{ success: boolean; data: ResourceLink }>(`/links/${id}`);
+    },
+
+    create: async (payload: {
+      category: "POLICY" | "PMAY";
+      title: string;
+      url: string;
+      description?: string;
+      order?: number;
+      isActive?: boolean;
+    }): Promise<{ success: boolean; message: string; data: ResourceLink }> => {
+      return apiRequest<{ success: boolean; message: string; data: ResourceLink }>("/links", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    update: async (id: string, payload: Partial<ResourceLink>): Promise<{ success: boolean; message: string; data: ResourceLink }> => {
+      return apiRequest<{ success: boolean; message: string; data: ResourceLink }>(`/links/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+    },
+
+    delete: async (id: string): Promise<{ success: boolean; message: string }> => {
+      return apiRequest<{ success: boolean; message: string }>(`/links/${id}`, {
         method: "DELETE",
       });
     },

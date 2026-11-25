@@ -42,9 +42,13 @@ import {
   UserCheck,
   UserX,
   ShieldCheck,
+  BookOpen,
+  Landmark,
+  Globe,
+  ChevronRight,
 } from "lucide-react"
 import { TemplateImportWizard } from "@/components/template-import-wizard"
-import { api, tokenStorage, userStorage, Template, User, TeamMember, DashboardOverview, Pagination } from "@/lib/api"
+import { api, tokenStorage, userStorage, Template, User, TeamMember, ResourceLink, DashboardOverview, Pagination } from "@/lib/api"
 
 const fallbackFrequencies = [
   "Adhoc",
@@ -80,8 +84,34 @@ export function TemplatePortal() {
   const [authChecking, setAuthChecking] = useState(true)
 
   // Navigation State
-  const [page, setPage] = useState<"Dashboard" | "Template Explorer" | "Meet Our Team" | "Staff Management" | "Activity" | "Settings">("Dashboard")
+  const [page, setPage] = useState<
+    | "Dashboard"
+    | "Customer Communications"
+    | "Policies"
+    | "PMAY"
+    | "Meet Our Team"
+    | "Staff Management"
+    | "Activity"
+    | "Settings"
+  >("Dashboard")
   const [mobileNav, setMobileNav] = useState(false)
+
+  // Resource Links (Policies and PMAY)
+  const [policyLinks, setPolicyLinks] = useState<ResourceLink[]>([])
+  const [pmayLinks, setPmayLinks] = useState<ResourceLink[]>([])
+  const [selectedPmayId, setSelectedPmayId] = useState<string | null>(null)
+  const [pmayExpanded, setPmayExpanded] = useState(true)
+  const [linkModal, setLinkModal] = useState<"POLICY" | "PMAY" | null>(null)
+  const [linkDraft, setLinkDraft] = useState({
+    id: "",
+    category: "POLICY" as "POLICY" | "PMAY",
+    title: "",
+    url: "",
+    description: "",
+    order: 0,
+    isActive: true,
+  })
+  const [linkSubmitting, setLinkSubmitting] = useState(false)
 
   // Staff Management State (Admin only)
   const [staffList, setStaffList] = useState<User[]>([])
@@ -330,6 +360,24 @@ export function TemplatePortal() {
     }
   }, [user?.role])
 
+  // 7. Fetch Resource Links (Policies & PMAY)
+  const fetchLinks = useCallback(async () => {
+    try {
+      const res = await api.links.getAll()
+      if (res.success && Array.isArray(res.data)) {
+        const policies = res.data.filter((l) => l.category === "POLICY")
+        const pmays = res.data.filter((l) => l.category === "PMAY")
+        setPolicyLinks(policies)
+        setPmayLinks(pmays)
+        if (pmays.length > 0 && !selectedPmayId) {
+          setSelectedPmayId(pmays[0].id)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load resource links:", err)
+    }
+  }, [selectedPmayId])
+
   // Initial load
   useEffect(() => {
     if (mounted && user) {
@@ -337,11 +385,12 @@ export function TemplatePortal() {
       fetchFilterOptions()
       fetchTemplates()
       fetchTeam()
+      fetchLinks()
       if (user.role === "ADMIN") {
         fetchStaff()
       }
     }
-  }, [mounted, user, fetchOverview, fetchFilterOptions, fetchTemplates, fetchTeam, fetchStaff])
+  }, [mounted, user, fetchOverview, fetchFilterOptions, fetchTemplates, fetchTeam, fetchStaff, fetchLinks])
 
   // Filter actions
   const applyFilters = () => {
@@ -770,18 +819,94 @@ export function TemplatePortal() {
     }
   }
 
-  const chooseNav = (nav: "Dashboard" | "Template Explorer" | "Meet Our Team" | "Staff Management" | "Activity" | "Settings") => {
+  // Link Handlers (Policies & PMAY)
+  const openAddLinkModal = (category: "POLICY" | "PMAY") => {
+    setLinkDraft({
+      id: "",
+      category,
+      title: "",
+      url: "",
+      description: "",
+      order: category === "POLICY" ? policyLinks.length : pmayLinks.length,
+      isActive: true,
+    })
+    setLinkModal(category)
+  }
+
+  const openEditLinkModal = (link: ResourceLink) => {
+    setLinkDraft({
+      id: link.id,
+      category: link.category,
+      title: link.title,
+      url: link.url,
+      description: link.description || "",
+      order: link.order,
+      isActive: link.isActive,
+    })
+    setLinkModal(link.category)
+  }
+
+  const handleSaveLink = async () => {
+    if (!linkDraft.title.trim() || !linkDraft.url.trim()) {
+      notify("Please provide both Name and Link URL")
+      return
+    }
+    setLinkSubmitting(true)
+    try {
+      if (linkDraft.id) {
+        await api.links.update(linkDraft.id, {
+          title: linkDraft.title.trim(),
+          url: linkDraft.url.trim(),
+          description: linkDraft.description.trim() || undefined,
+          order: linkDraft.order,
+          isActive: linkDraft.isActive,
+        })
+        notify(`${linkDraft.category === "POLICY" ? "Policy" : "PMAY"} link updated!`)
+      } else {
+        await api.links.create({
+          category: linkDraft.category,
+          title: linkDraft.title.trim(),
+          url: linkDraft.url.trim(),
+          description: linkDraft.description.trim() || undefined,
+          order: linkDraft.order,
+          isActive: linkDraft.isActive,
+        })
+        notify(`${linkDraft.category === "POLICY" ? "Policy" : "PMAY"} link added successfully!`)
+      }
+      setLinkModal(null)
+      fetchLinks()
+    } catch (err: any) {
+      notify(err?.message || "Failed to save link")
+    } finally {
+      setLinkSubmitting(false)
+    }
+  }
+
+  const handleDeleteLink = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return
+    try {
+      await api.links.delete(id)
+      notify("Link deleted successfully")
+      fetchLinks()
+    } catch (err: any) {
+      notify(err?.message || "Failed to delete link")
+    }
+  }
+
+  const chooseNav = (
+    nav:
+      | "Dashboard"
+      | "Customer Communications"
+      | "Policies"
+      | "PMAY"
+      | "Meet Our Team"
+      | "Staff Management"
+      | "Activity"
+      | "Settings"
+  ) => {
     setPage(nav)
     setMobileNav(false)
   }
-
-  const navItems = [
-    { label: "Dashboard" as const, icon: LayoutDashboard },
-    { label: "Template Explorer" as const, icon: Files },
-    { label: "Meet Our Team" as const, icon: Users },
-    ...(user?.role === "ADMIN" ? [{ label: "Staff Management" as const, icon: UserPlus }] : []),
-    { label: "Activity" as const, icon: Clock3 },
-  ]
 
   if (!mounted || authChecking) {
     return (
@@ -826,25 +951,151 @@ export function TemplatePortal() {
             Workspace
           </p>
           <nav className="flex flex-col gap-1">
-            {navItems.map(({ label, icon: Icon }) => (
-              <button
-                key={label}
-                onClick={() => chooseNav(label)}
-                className={`flex h-10 items-center gap-3 rounded-md px-3 text-left text-[13px] transition ${
-                  page === label
+            {/* Dashboard */}
+            <button
+              onClick={() => chooseNav("Dashboard")}
+              className={`flex h-10 items-center gap-3 rounded-md px-3 text-left text-[13px] transition ${
+                page === "Dashboard"
+                  ? "bg-[#edf4ef] font-medium text-[#205c3c]"
+                  : "text-[#636b61] hover:bg-[#f5f7f4] hover:text-[#252b24]"
+              }`}
+            >
+              <LayoutDashboard size={16} />
+              <span className="flex-1 truncate">Dashboard</span>
+            </button>
+
+            {/* Customer Communications (Template Explorer) */}
+            <button
+              onClick={() => chooseNav("Customer Communications")}
+              className={`flex h-10 items-center gap-3 rounded-md px-3 text-left text-[13px] transition ${
+                page === "Customer Communications"
+                  ? "bg-[#edf4ef] font-medium text-[#205c3c]"
+                  : "text-[#636b61] hover:bg-[#f5f7f4] hover:text-[#252b24]"
+              }`}
+            >
+              <Files size={16} />
+              <span className="flex-1 truncate">Customer Communications</span>
+              <span className="ml-auto rounded-sm bg-white px-1.5 py-0.5 text-[10px] text-[#687368] border border-[#e2e7e0]">
+                {pagination.totalRecords}
+              </span>
+            </button>
+
+            {/* Policies - directly under Customer Communications, single main tab with no sub-tabs */}
+            <button
+              onClick={() => chooseNav("Policies")}
+              className={`flex h-10 items-center gap-3 rounded-md px-3 text-left text-[13px] transition ${
+                page === "Policies"
+                  ? "bg-[#edf4ef] font-medium text-[#205c3c]"
+                  : "text-[#636b61] hover:bg-[#f5f7f4] hover:text-[#252b24]"
+              }`}
+            >
+              <BookOpen size={16} />
+              <span className="flex-1 truncate">Policies</span>
+              {policyLinks.length > 0 && (
+                <span className="ml-auto size-2 rounded-full bg-[#205c3c]" title="Policy Configured" />
+              )}
+            </button>
+
+            {/* PMAY - Main option with multiple sub-tabs added from settings */}
+            <div className="flex flex-col">
+              <div
+                className={`flex h-10 items-center justify-between rounded-md px-3 text-[13px] transition ${
+                  page === "PMAY"
                     ? "bg-[#edf4ef] font-medium text-[#205c3c]"
                     : "text-[#636b61] hover:bg-[#f5f7f4] hover:text-[#252b24]"
                 }`}
               >
-                <Icon size={16} />
-                <span className="flex-1 truncate">{label}</span>
-                {label === "Template Explorer" && (
-                  <span className="ml-auto rounded-sm bg-white px-1.5 py-0.5 text-[10px] text-[#687368] border border-[#e2e7e0]">
-                    {pagination.totalRecords}
-                  </span>
+                <button
+                  onClick={() => {
+                    chooseNav("PMAY")
+                    if (pmayLinks.length > 0 && !selectedPmayId) {
+                      setSelectedPmayId(pmayLinks[0].id)
+                    }
+                  }}
+                  className="flex flex-1 items-center gap-3 truncate text-left"
+                >
+                  <Landmark size={16} />
+                  <span className="truncate">PMAY</span>
+                </button>
+                {pmayLinks.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPmayExpanded(!pmayExpanded)
+                    }}
+                    className="p-1 text-[#838c80] hover:text-[#205c3c] rounded"
+                    title={pmayExpanded ? "Collapse PMAY sub-tabs" : "Expand PMAY sub-tabs"}
+                  >
+                    {pmayExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
                 )}
+              </div>
+
+              {/* Multiple Sub-tabs under PMAY */}
+              {pmayExpanded && pmayLinks.length > 0 && (
+                <div className="mt-1 space-y-0.5 pl-3 border-l-2 border-[#e3e8e1] ml-4">
+                  {pmayLinks.map((subLink) => (
+                    <button
+                      key={subLink.id}
+                      onClick={() => {
+                        setSelectedPmayId(subLink.id)
+                        chooseNav("PMAY")
+                      }}
+                      className={`flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-[11px] transition ${
+                        page === "PMAY" && selectedPmayId === subLink.id
+                          ? "bg-[#e5eee6] font-semibold text-[#1e5837]"
+                          : "text-[#666f64] hover:bg-[#f6f8f5] hover:text-[#232921]"
+                      }`}
+                    >
+                      <span className="size-1 rounded-full bg-[#3d7a50]" />
+                      <span className="flex-1 truncate">{subLink.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Meet Our Team */}
+            <button
+              onClick={() => chooseNav("Meet Our Team")}
+              className={`flex h-10 items-center gap-3 rounded-md px-3 text-left text-[13px] transition ${
+                page === "Meet Our Team"
+                  ? "bg-[#edf4ef] font-medium text-[#205c3c]"
+                  : "text-[#636b61] hover:bg-[#f5f7f4] hover:text-[#252b24]"
+              }`}
+            >
+              <Users size={16} />
+              <span className="flex-1 truncate">Meet Our Team</span>
+            </button>
+
+            {/* Staff Management (Admin only) */}
+            {user?.role === "ADMIN" && (
+              <button
+                onClick={() => chooseNav("Staff Management")}
+                className={`flex h-10 items-center gap-3 rounded-md px-3 text-left text-[13px] transition ${
+                  page === "Staff Management"
+                    ? "bg-[#edf4ef] font-medium text-[#205c3c]"
+                    : "text-[#636b61] hover:bg-[#f5f7f4] hover:text-[#252b24]"
+                }`}
+              >
+                <UserPlus size={16} />
+                <span className="flex-1 truncate">Staff Management</span>
               </button>
-            ))}
+            )}
+
+            {/* Activity */}
+            {/* <button
+              onClick={() => chooseNav("Activity")}
+              className={`flex h-10 items-center gap-3 rounded-md px-3 text-left text-[13px] transition ${
+                page === "Activity"
+                  ? "bg-[#edf4ef] font-medium text-[#205c3c]"
+                  : "text-[#636b61] hover:bg-[#f5f7f4] hover:text-[#252b24]"
+              }`}
+            >
+              <Clock3 size={16} />
+              <span className="flex-1 truncate">Activity</span>
+            </button> */}
           </nav>
         </div>
 
@@ -852,15 +1103,17 @@ export function TemplatePortal() {
           <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[.12em] text-[#a2a89f]">
             Manage
           </p>
-          <button
-            onClick={() => {
-              setModal("import")
-              setMobileNav(false)
-            }}
-            className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-[13px] text-[#636b61] hover:bg-[#f5f7f4]"
-          >
-            <Upload size={16} /> Bulk Import
-          </button>
+          {user?.role === "ADMIN" && (
+            <button
+              onClick={() => {
+                setModal("import")
+                setMobileNav(false)
+              }}
+              className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-[13px] text-[#636b61] hover:bg-[#f5f7f4]"
+            >
+              <Upload size={16} /> Bulk Import
+            </button>
+          )}
           <button
             onClick={() => chooseNav("Settings")}
             className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-[13px] ${
@@ -959,7 +1212,7 @@ export function TemplatePortal() {
 
         {/* Content Area with Fluid Responsive Padding */}
         <main className="mx-auto max-w-[1500px] px-3.5 py-4 sm:px-6 sm:py-6 lg:py-7">
-          {page === "Template Explorer" ? (
+          {page === "Customer Communications" ? (
             <>
               {/* Explorer Header */}
               <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -967,29 +1220,31 @@ export function TemplatePortal() {
                   <div className="mb-1 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-[#7e877c]">
                     <span>Workspace</span>
                     <span>/</span>
-                    <span className="text-[#435044]">Templates</span>
+                    <span className="text-[#435044]">Customer Communications</span>
                   </div>
                   <h2 className="text-[20px] sm:text-[23px] font-semibold tracking-[-.035em]">
-                    SMS Template Explorer
+                    Customer Communications
                   </h2>
                   <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
                     Search, filter, review and maintain official DLT SMS templates.
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                  <button
-                    onClick={() => setModal("import")}
-                    className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[#dfe4dd] bg-white px-3 text-[12px] font-medium text-[#475046] hover:bg-[#fafbf9]"
-                  >
-                    <Upload size={14} /> Import
-                  </button>
-                  <button
-                    onClick={openAddModal}
-                    className="flex h-9 items-center justify-center gap-1.5 rounded-md bg-[#205c3c] px-3.5 text-[12px] font-medium text-white shadow-xs hover:bg-[#174b30]"
-                  >
-                    <Plus size={15} /> Add template
-                  </button>
-                </div>
+                {user?.role === "ADMIN" && (
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                    <button
+                      onClick={() => setModal("import")}
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-[#dfe4dd] bg-white px-3 text-[12px] font-medium text-[#475046] hover:bg-[#fafbf9]"
+                    >
+                      <Upload size={14} /> Import
+                    </button>
+                    <button
+                      onClick={openAddModal}
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-md bg-[#205c3c] px-3.5 text-[12px] font-medium text-white shadow-xs hover:bg-[#174b30]"
+                    >
+                      <Plus size={15} /> Add template
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Dynamic Stats Row - 2 cols on mobile, 4 on desktop */}
@@ -1601,6 +1856,18 @@ export function TemplatePortal() {
                 <p className="mt-1 text-xs text-[#6e5553]">Staff management is restricted to Administrators only.</p>
               </div>
             )
+          ) : page === "Policies" ? (
+            <PoliciesView
+              policyLinks={policyLinks}
+              onGoToSettings={() => chooseNav("Settings")}
+            />
+          ) : page === "PMAY" ? (
+            <PmayView
+              pmayLinks={pmayLinks}
+              selectedPmayId={selectedPmayId}
+              onSelectPmay={setSelectedPmayId}
+              onGoToSettings={() => chooseNav("Settings")}
+            />
           ) : page === "Meet Our Team" ? (
             <MeetOurTeamView
               team={teamMembers}
@@ -1615,7 +1882,7 @@ export function TemplatePortal() {
               stats={stats}
               user={user}
               recentTemplates={templates.slice(0, 6)}
-              onExplore={() => chooseNav("Template Explorer")}
+              onExplore={() => chooseNav("Customer Communications")}
               onAdd={openAddModal}
               onImport={() => setModal("import")}
               onView={setSelected}
@@ -1623,7 +1890,18 @@ export function TemplatePortal() {
           ) : page === "Activity" ? (
             <ActivityView templates={templates} />
           ) : (
-            <SettingsView user={user} onLogout={handleLogout} />
+            <SettingsView
+              user={user}
+              onLogout={handleLogout}
+              policyLinks={policyLinks}
+              pmayLinks={pmayLinks}
+              onAddPolicy={() => openAddLinkModal("POLICY")}
+              onEditPolicy={(link) => openEditLinkModal(link)}
+              onDeletePolicy={handleDeleteLink}
+              onAddPmay={() => openAddLinkModal("PMAY")}
+              onEditPmay={(link) => openEditLinkModal(link)}
+              onDeletePmay={handleDeleteLink}
+            />
           )}
         </main>
 
@@ -1810,20 +2088,26 @@ export function TemplatePortal() {
             </div>
 
             {modal === "import" ? (
-              <div className="overflow-y-auto flex-1">
-                <TemplateImportWizard
-                  onClose={() => setModal(null)}
-                  onDone={(res) => {
-                    setModal(null)
-                    fetchTemplates()
-                    fetchOverview()
-                    fetchFilterOptions()
-                    if (res) {
-                      notify(`Imported ${res.successfulCount} new templates to database!`)
-                    }
-                  }}
-                />
-              </div>
+              user?.role === "ADMIN" ? (
+                <div className="overflow-y-auto flex-1">
+                  <TemplateImportWizard
+                    onClose={() => setModal(null)}
+                    onDone={(res) => {
+                      setModal(null)
+                      fetchTemplates()
+                      fetchOverview()
+                      fetchFilterOptions()
+                      if (res) {
+                        notify(`Imported ${res.successfulCount} new templates to database!`)
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="p-8 text-center text-xs text-[#c0392b]">
+                  Bulk import is restricted to Administrators only.
+                </div>
+              )
             ) : (
               <div className="overflow-y-auto flex-1 p-4 sm:p-5">
                 {modalError && (
@@ -2344,6 +2628,98 @@ export function TemplatePortal() {
         </div>
       )}
 
+      {/* Policy & PMAY Add / Edit Link Modal */}
+      {linkModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4 backdrop-blur-xs"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !linkSubmitting) setLinkModal(null)
+          }}
+        >
+          <section className="w-full max-w-[500px] flex flex-col rounded-lg border border-[#e8ebe6] bg-white shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-[#edf0ec] px-4 py-3.5 sm:px-5 sm:py-4">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#252c23] flex items-center gap-2">
+                  {linkModal === "POLICY" ? <BookOpen size={16} className="text-[#205c3c]" /> : <Landmark size={16} className="text-[#205c3c]" />}
+                  {linkDraft.id ? `Edit ${linkModal === "POLICY" ? "Policy" : "PMAY"} Link` : `Add ${linkModal === "POLICY" ? "Policy" : "PMAY"} Link`}
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[#81897f]">
+                  {linkModal === "POLICY"
+                    ? "Set the official policy document name and target URL."
+                    : "Add a PMAY resource link. It will appear as a sub-tab in the sidebar."}
+                </p>
+              </div>
+              <button
+                disabled={linkSubmitting}
+                aria-label="Close"
+                onClick={() => setLinkModal(null)}
+                className="text-[#7e867c] hover:text-[#383f36] p-1"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-3.5">
+              <Field label="Resource Name / Title *">
+                <input
+                  value={linkDraft.title}
+                  onChange={(e) => setLinkDraft({ ...linkDraft, title: e.target.value })}
+                  className={cnInput}
+                  placeholder={linkModal === "POLICY" ? "e.g. Credit & Underwriting Policy 2026" : "e.g. PMAY CLSS Subsidy Tracking"}
+                />
+              </Field>
+
+              <Field label="Target URL / Web Link *">
+                <input
+                  type="url"
+                  value={linkDraft.url}
+                  onChange={(e) => setLinkDraft({ ...linkDraft, url: e.target.value })}
+                  className={cnInput}
+                  placeholder="e.g. https://indianshelter.in/policies/credit.pdf or https://pmayuclap.gov.in/"
+                />
+              </Field>
+
+              <Field label="Description (optional)">
+                <input
+                  value={linkDraft.description}
+                  onChange={(e) => setLinkDraft({ ...linkDraft, description: e.target.value })}
+                  className={cnInput}
+                  placeholder="Short note or summary of this resource..."
+                />
+              </Field>
+
+              <Field label="Display Order">
+                <input
+                  type="number"
+                  value={linkDraft.order}
+                  onChange={(e) => setLinkDraft({ ...linkDraft, order: parseInt(e.target.value) || 0 })}
+                  className={cnInput}
+                  placeholder="0, 1, 2..."
+                />
+              </Field>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[#edf0ec] px-4 py-3 sm:px-5">
+              <button
+                disabled={linkSubmitting}
+                onClick={() => setLinkModal(null)}
+                className="h-8 rounded-md border border-[#e2e7e0] px-3 text-[11px] font-medium text-[#525a50] hover:bg-[#fafbf9]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveLink}
+                disabled={linkSubmitting || !linkDraft.title.trim() || !linkDraft.url.trim()}
+                className="flex h-8 items-center gap-1.5 rounded-md bg-[#205c3c] px-4 text-[11px] font-medium text-white shadow-xs hover:bg-[#174b30] disabled:opacity-50"
+              >
+                {linkSubmitting && <Loader2 size={12} className="animate-spin" />}
+                <span>Save Link</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Floating Feedback Toast */}
       {toast && (
         <div
@@ -2502,20 +2878,22 @@ function DashboardView({
             Live dashboard of India Shelter communication templates and distribution frequencies.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex">
-          <button
-            onClick={onImport}
-            className="flex h-9 items-center justify-center gap-2 rounded-md border border-[#dfe4dd] bg-white px-3 text-[12px] font-medium text-[#444c42] hover:bg-[#f9faf8]"
-          >
-            <Upload size={14} /> Import Excel
-          </button>
-          <button
-            onClick={onAdd}
-            className="flex h-9 items-center justify-center gap-2 rounded-md bg-[#205c3c] px-3.5 text-[12px] font-medium text-white shadow-xs hover:bg-[#174b30]"
-          >
-            <Plus size={15} /> Add template
-          </button>
-        </div>
+        {user?.role === "ADMIN" && (
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <button
+              onClick={onImport}
+              className="flex h-9 items-center justify-center gap-2 rounded-md border border-[#dfe4dd] bg-white px-3 text-[12px] font-medium text-[#444c42] hover:bg-[#f9faf8]"
+            >
+              <Upload size={14} /> Import Excel
+            </button>
+            <button
+              onClick={onAdd}
+              className="flex h-9 items-center justify-center gap-2 rounded-md bg-[#205c3c] px-3.5 text-[12px] font-medium text-white shadow-xs hover:bg-[#174b30]"
+            >
+              <Plus size={15} /> Add template
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mb-5 sm:mb-6 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
@@ -2659,7 +3037,7 @@ function DashboardView({
               onClick={onExplore}
               className="mt-2 text-[10px] font-semibold text-[#346444] hover:underline"
             >
-              Open template explorer →
+              Open customer communications →
             </button>
           </section>
         </div>
@@ -2728,47 +3106,569 @@ function ActivityView({ templates }: { templates: Template[] }) {
   )
 }
 
-function SettingsView({ user, onLogout }: { user: User | null; onLogout: () => void }) {
+function SettingsView({
+  user,
+  onLogout,
+  policyLinks,
+  pmayLinks,
+  onAddPolicy,
+  onEditPolicy,
+  onDeletePolicy,
+  onAddPmay,
+  onEditPmay,
+  onDeletePmay,
+}: {
+  user: User | null
+  onLogout: () => void
+  policyLinks: ResourceLink[]
+  pmayLinks: ResourceLink[]
+  onAddPolicy: () => void
+  onEditPolicy: (link: ResourceLink) => void
+  onDeletePolicy: (id: string, name: string) => void
+  onAddPmay: () => void
+  onEditPmay: (link: ResourceLink) => void
+  onDeletePmay: (id: string, name: string) => void
+}) {
   return (
-    <div className="rounded-lg border border-[#e5e9e3] bg-white p-4 sm:p-8 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
-      <h2 className="text-base sm:text-lg font-semibold text-[#222920]">Employee Profile & Settings</h2>
-      <p className="mt-1 text-xs sm:text-sm text-[#737b71]">
-        Authenticated credentials and role-based permissions for India Shelter Workspace.
-      </p>
-
-      <div className="mt-5 sm:mt-6 grid max-w-lg gap-3 sm:gap-4 sm:grid-cols-2">
-        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 sm:p-3.5">
-          <p className="text-[10px] sm:text-[11px] text-[#8b9389]">Employee Name</p>
-          <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127]">{user?.name || "—"}</p>
+    <div className="space-y-6">
+      {/* 1. Employee Profile Card */}
+      <div className="rounded-lg border border-[#e5e9e3] bg-white p-4 sm:p-6 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+        <div className="flex items-center justify-between pb-4 border-b border-[#edf0ec]">
+          <div>
+            <h2 className="text-base sm:text-lg font-semibold text-[#222920]">Employee Profile & Settings</h2>
+            <p className="mt-0.5 text-xs text-[#737b71]">
+              Authenticated credentials and role-based permissions for India Shelter Workspace.
+            </p>
+          </div>
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-1.5 rounded-md border border-[#eed0cc] bg-[#fff8f7] px-3.5 py-1.5 text-xs font-medium text-[#a1483c] hover:bg-[#fae8e6] transition"
+          >
+            <LogOut size={13} /> Sign out
+          </button>
         </div>
-        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 sm:p-3.5">
-          <p className="text-[10px] sm:text-[11px] text-[#8b9389]">Role & Permissions</p>
-          <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127]">
-            {user?.role === "ADMIN" ? "Administrator" : "Employee"}
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+          <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3">
+            <p className="text-[10px] text-[#8b9389]">Employee Name</p>
+            <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127] truncate">{user?.name || "—"}</p>
+          </div>
+          <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3">
+            <p className="text-[10px] text-[#8b9389]">Role & Permissions</p>
+            <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127]">
+              {user?.role === "ADMIN" ? "Administrator" : "Employee"}
+            </p>
+          </div>
+          <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3">
+            <p className="text-[10px] text-[#8b9389]">Employee ID</p>
+            <p className="mt-1 font-mono text-xs sm:text-sm font-semibold text-[#293127]">{user?.employeeId || "—"}</p>
+          </div>
+          <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3">
+            <p className="text-[10px] text-[#8b9389]">Corporate Email</p>
+            <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127] truncate">{user?.email || "—"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Policies Configuration Section */}
+      <div className="rounded-lg border border-[#e5e9e3] bg-white p-4 sm:p-6 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-[#edf0ec]">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 items-center justify-center rounded-md bg-[#edf5ee] text-[#1e5837]">
+                <BookOpen size={15} />
+              </span>
+              <h3 className="text-base font-semibold text-[#222920]">Policy Configuration</h3>
+            </div>
+            <p className="mt-1 text-xs text-[#737b71]">
+              Manage company policy documents and web links. Appears directly under Customer Communications in the sidebar.
+            </p>
+          </div>
+          <button
+            onClick={onAddPolicy}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#205c3c] px-3 text-xs font-medium text-white shadow-xs hover:bg-[#174b30] transition shrink-0"
+          >
+            <Plus size={13} /> Add Policy Link
+          </button>
+        </div>
+
+        {policyLinks.length === 0 ? (
+          <div className="py-8 text-center text-xs text-[#828d80]">
+            <p>No policy links configured yet.</p>
+            <button
+              onClick={onAddPolicy}
+              className="mt-2 text-xs font-semibold text-[#205c3c] hover:underline"
+            >
+              + Click here to add your first policy link
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left">
+              <thead className="bg-[#fafbf9] text-[10px] uppercase tracking-wide text-[#899187] border-b border-[#edf0ec]">
+                <tr>
+                  <th className="px-4 py-2.5">Policy Name</th>
+                  <th className="px-3 py-2.5">Target Web Link</th>
+                  <th className="px-3 py-2.5">Description</th>
+                  <th className="px-4 py-2.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f2ef]">
+                {policyLinks.map((p) => (
+                  <tr key={p.id} className="hover:bg-[#fafbf9] transition">
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-semibold text-[#222920]">{p.title}</p>
+                    </td>
+                    <td className="px-3 py-3">
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-mono text-[#255e39] hover:underline max-w-[280px] truncate"
+                      >
+                        <Globe size={11} className="shrink-0" />
+                        <span className="truncate">{p.url}</span>
+                      </a>
+                    </td>
+                    <td className="px-3 py-3 text-xs text-[#6e776d] max-w-[200px] truncate">
+                      {p.description || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <a
+                          href={p.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex h-7 items-center gap-1 rounded border border-[#dfe5de] bg-white px-2 text-[10px] font-medium text-[#4b5449] hover:bg-[#f6f8f5]"
+                        >
+                          <ExternalLink size={11} /> Open
+                        </a>
+                        <button
+                          onClick={() => onEditPolicy(p)}
+                          className="inline-flex h-7 items-center gap-1 rounded border border-[#dfe5de] bg-white px-2 text-[10px] font-medium text-[#4b5449] hover:bg-[#f6f8f5]"
+                        >
+                          <Edit3 size={11} /> Edit
+                        </button>
+                        <button
+                          onClick={() => onDeletePolicy(p.id, p.title)}
+                          className="inline-flex h-7 items-center gap-1 rounded border border-[#eed0cc] bg-[#fff8f7] px-2 text-[10px] font-medium text-[#a1483c] hover:bg-[#fae8e6]"
+                        >
+                          <Trash2 size={11} /> Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 3. PMAY Configuration Section */}
+      <div className="rounded-lg border border-[#e5e9e3] bg-white p-4 sm:p-6 shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-[#edf0ec]">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 items-center justify-center rounded-md bg-[#edf5ee] text-[#1e5837]">
+                <Landmark size={15} />
+              </span>
+              <h3 className="text-base font-semibold text-[#222920]">PMAY Configuration</h3>
+            </div>
+            <p className="mt-1 text-xs text-[#737b71]">
+              Add any number of PMAY portal links and schemes. Each entry appears as an expandable sub-tab under PMAY in the sidebar.
+            </p>
+          </div>
+          <button
+            onClick={onAddPmay}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#205c3c] px-3 text-xs font-medium text-white shadow-xs hover:bg-[#174b30] transition shrink-0"
+          >
+            <Plus size={13} /> Add PMAY Link
+          </button>
+        </div>
+
+        {pmayLinks.length === 0 ? (
+          <div className="py-8 text-center text-xs text-[#828d80]">
+            <p>No PMAY sub-links configured yet.</p>
+            <button
+              onClick={onAddPmay}
+              className="mt-2 text-xs font-semibold text-[#205c3c] hover:underline"
+            >
+              + Click here to add your first PMAY sub-link
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left">
+              <thead className="bg-[#fafbf9] text-[10px] uppercase tracking-wide text-[#899187] border-b border-[#edf0ec]">
+                <tr>
+                  <th className="px-4 py-2.5">Sub-Tab Name</th>
+                  <th className="px-3 py-2.5">Target Web Link</th>
+                  <th className="px-3 py-2.5">Order</th>
+                  <th className="px-3 py-2.5">Description</th>
+                  <th className="px-4 py-2.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f2ef]">
+                {pmayLinks.map((item) => (
+                  <tr key={item.id} className="hover:bg-[#fafbf9] transition">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="size-1.5 rounded-full bg-[#205c3c]" />
+                        <p className="text-xs font-semibold text-[#222920]">{item.title}</p>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-mono text-[#255e39] hover:underline max-w-[280px] truncate"
+                      >
+                        <Globe size={11} className="shrink-0" />
+                        <span className="truncate">{item.url}</span>
+                      </a>
+                    </td>
+                    <td className="px-3 py-3 text-xs font-mono text-[#5b645a]">
+                      {item.order}
+                    </td>
+                    <td className="px-3 py-3 text-xs text-[#6e776d] max-w-[180px] truncate">
+                      {item.description || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex h-7 items-center gap-1 rounded border border-[#dfe5de] bg-white px-2 text-[10px] font-medium text-[#4b5449] hover:bg-[#f6f8f5]"
+                        >
+                          <ExternalLink size={11} /> Open
+                        </a>
+                        <button
+                          onClick={() => onEditPmay(item)}
+                          className="inline-flex h-7 items-center gap-1 rounded border border-[#dfe5de] bg-white px-2 text-[10px] font-medium text-[#4b5449] hover:bg-[#f6f8f5]"
+                        >
+                          <Edit3 size={11} /> Edit
+                        </button>
+                        <button
+                          onClick={() => onDeletePmay(item.id, item.title)}
+                          className="inline-flex h-7 items-center gap-1 rounded border border-[#eed0cc] bg-[#fff8f7] px-2 text-[10px] font-medium text-[#a1483c] hover:bg-[#fae8e6]"
+                        >
+                          <Trash2 size={11} /> Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PoliciesView({
+  policyLinks,
+  onGoToSettings,
+}: {
+  policyLinks: ResourceLink[]
+  onGoToSettings: () => void
+}) {
+  const primaryPolicy = policyLinks[0]
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-1 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-[#7e877c]">
+            <span>Workspace</span>
+            <span>/</span>
+            <span className="text-[#435044]">Policies & Guidelines</span>
+          </div>
+          <h2 className="text-[20px] sm:text-[23px] font-semibold tracking-[-.035em] text-[#1f261e]">
+            Company Policies
+          </h2>
+          <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
+            Official India Shelter lending policies, operating guidelines, and regulatory frameworks.
           </p>
         </div>
-        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 sm:p-3.5">
-          <p className="text-[10px] sm:text-[11px] text-[#8b9389]">Employee ID</p>
-          <p className="mt-1 font-mono text-xs sm:text-sm font-semibold text-[#293127]">{user?.employeeId || "—"}</p>
-        </div>
-        <div className="rounded-md border border-[#e7ece6] bg-[#fafbf9] p-3 sm:p-3.5">
-          <p className="text-[10px] sm:text-[11px] text-[#8b9389]">Corporate Email</p>
-          <p className="mt-1 text-xs sm:text-sm font-semibold text-[#293127] truncate">{user?.email || "—"}</p>
-        </div>
-      </div>
-
-      <div className="mt-6 sm:mt-8 border-t border-[#edf0ec] pt-5 sm:pt-6 flex items-center justify-between max-w-lg">
-        <div>
-          <p className="text-xs font-semibold text-[#2f362d]">Session Authentication</p>
-          <p className="text-[10px] sm:text-[11px] text-[#899187]">Secured with Bearer JWT</p>
-        </div>
         <button
-          onClick={onLogout}
-          className="flex items-center gap-1.5 rounded-md border border-[#eed0cc] bg-[#fff8f7] px-3.5 py-2 text-xs font-medium text-[#a1483c] hover:bg-[#fae8e6]"
+          onClick={onGoToSettings}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#dfe4dd] bg-white px-3 text-xs font-medium text-[#465044] hover:bg-[#fafbf9]"
         >
-          <LogOut size={13} /> Sign out
+          <Settings2 size={13} /> Manage in Settings
         </button>
       </div>
+
+      {policyLinks.length === 0 ? (
+        <div className="rounded-lg border border-[#e5e9e3] bg-white p-12 text-center shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-[#f0f4f0] text-[#2c5f3e]">
+            <BookOpen size={22} />
+          </div>
+          <h3 className="text-sm font-semibold text-[#222920]">No Policy Link Configured Yet</h3>
+          <p className="mt-1 text-xs text-[#737b71] max-w-sm mx-auto">
+            You can add the official policy document name and URL from the Settings page. It will be immediately accessible here.
+          </p>
+          <button
+            onClick={onGoToSettings}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-[#205c3c] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#174b30]"
+          >
+            <Plus size={13} /> Add Policy in Settings
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {/* Main Active Policy Card */}
+          <div className="rounded-lg border border-[#dbe4dc] bg-gradient-to-br from-white via-[#fcfdfb] to-[#f6f9f6] p-5 sm:p-6 shadow-[0_2px_4px_rgba(20,35,20,0.03)]">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <span className="inline-flex items-center gap-1 rounded-md bg-[#edf6ef] border border-[#cfdfd1] px-2.5 py-0.5 text-[11px] font-semibold text-[#1e5836]">
+                  <BookOpen size={12} /> Active Policy Document
+                </span>
+                <h3 className="mt-2 text-lg sm:text-xl font-bold text-[#1a2e20]">
+                  {primaryPolicy.title}
+                </h3>
+                {primaryPolicy.description && (
+                  <p className="mt-1 text-xs text-[#5e695d] max-w-2xl leading-relaxed">
+                    {primaryPolicy.description}
+                  </p>
+                )}
+                <div className="mt-3 flex items-center gap-2 text-xs font-mono text-[#436449] break-all bg-[#f0f4ef] px-3 py-1.5 rounded-md border border-[#e1e9e0] w-fit">
+                  <Globe size={13} className="shrink-0 text-[#255e39]" />
+                  <a
+                    href={primaryPolicy.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline truncate max-w-[400px]"
+                  >
+                    {primaryPolicy.url}
+                  </a>
+                </div>
+              </div>
+
+              <div className="flex sm:flex-col gap-2 shrink-0">
+                <a
+                  href={primaryPolicy.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#205c3c] px-4 text-xs font-medium text-white shadow-xs hover:bg-[#174b30] transition"
+                >
+                  <ExternalLink size={14} /> Open Policy Document
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(primaryPolicy.url)
+                    alert("Policy URL copied to clipboard!")
+                  }}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-[#dfe4dd] bg-white px-3 text-xs font-medium text-[#465044] hover:bg-[#f6f8f5] transition"
+                >
+                  <Copy size={13} /> Copy Link
+                </button>
+              </div>
+            </div>
+
+            {/* Embedded Policy Viewer / Preview Container */}
+            <div className="mt-6 border-t border-[#e8efe8] pt-5">
+              <p className="text-[11px] font-medium text-[#6c786a] mb-2 flex items-center justify-between">
+                <span>Embedded Policy Viewer</span>
+                <span className="text-[10px] text-[#8e988c]">If blocked by browser security, use "Open Policy Document"</span>
+              </p>
+              <div className="w-full h-[620px] rounded-lg border border-[#d8e2d8] overflow-hidden bg-white shadow-inner relative">
+                <iframe
+                  src={primaryPolicy.url}
+                  title={primaryPolicy.title}
+                  className="w-full h-full border-0"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* If there are additional policies, list them */}
+          {policyLinks.length > 1 && (
+            <div className="mt-6">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-[#798578] mb-3">
+                All Configured Policies ({policyLinks.length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {policyLinks.slice(1).map((p) => (
+                  <div
+                    key={p.id}
+                    className="rounded-lg border border-[#e5e9e3] bg-white p-4 hover:border-[#205c3c] transition shadow-xs flex flex-col justify-between"
+                  >
+                    <div>
+                      <h5 className="font-semibold text-sm text-[#1e261d]">{p.title}</h5>
+                      {p.description && <p className="text-xs text-[#6a7469] mt-1">{p.description}</p>}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between pt-2 border-t border-[#f0f3ee]">
+                      <span className="text-[11px] font-mono text-[#6d776c] truncate max-w-[200px]">
+                        {p.url}
+                      </span>
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-[#205c3c] hover:underline"
+                      >
+                        Open <ExternalLink size={12} />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PmayView({
+  pmayLinks,
+  selectedPmayId,
+  onSelectPmay,
+  onGoToSettings,
+}: {
+  pmayLinks: ResourceLink[]
+  selectedPmayId: string | null
+  onSelectPmay: (id: string) => void
+  onGoToSettings: () => void
+}) {
+  const activeLink = pmayLinks.find((l) => l.id === selectedPmayId) || pmayLinks[0]
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-1 flex items-center gap-1.5 text-[10px] sm:text-[11px] text-[#7e877c]">
+            <span>Workspace</span>
+            <span>/</span>
+            <span className="text-[#435044]">Government Schemes</span>
+          </div>
+          <h2 className="text-[20px] sm:text-[23px] font-semibold tracking-[-.035em] text-[#1f261e]">
+            Pradhan Mantri Awas Yojana (PMAY)
+          </h2>
+          <p className="mt-0.5 text-[11px] sm:text-[12px] text-[#7b8379]">
+            Access Ministry of Housing and Urban Affairs (MoHUA) portals, CLSS subsidy verification, and MIS dashboards.
+          </p>
+        </div>
+        <button
+          onClick={onGoToSettings}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#dfe4dd] bg-white px-3 text-xs font-medium text-[#465044] hover:bg-[#fafbf9]"
+        >
+          <Settings2 size={13} /> Manage in Settings
+        </button>
+      </div>
+
+      {pmayLinks.length === 0 ? (
+        <div className="rounded-lg border border-[#e5e9e3] bg-white p-12 text-center shadow-[0_1px_2px_rgba(20,32,20,.02)]">
+          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-[#f0f4f0] text-[#2c5f3e]">
+            <Landmark size={22} />
+          </div>
+          <h3 className="text-sm font-semibold text-[#222920]">No PMAY Links Added Yet</h3>
+          <p className="mt-1 text-xs text-[#737b71] max-w-sm mx-auto">
+            You can add any number of PMAY portal links (e.g., CLSS Portal, Beneficiary Registry, MIS Reports) in Settings.
+            Each one will appear as a sub-tab in the sidebar.
+          </p>
+          <button
+            onClick={onGoToSettings}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-[#205c3c] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#174b30]"
+          >
+            <Plus size={13} /> Add PMAY Link in Settings
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {/* Sub-tab horizontal pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[#edf0ec]">
+            {pmayLinks.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => onSelectPmay(item.id)}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition shrink-0 ${
+                  activeLink?.id === item.id
+                    ? "bg-[#205c3c] text-white shadow-xs"
+                    : "bg-white text-[#525b50] border border-[#dfe4dc] hover:bg-[#f6f8f5]"
+                }`}
+              >
+                <Landmark size={12} />
+                <span>{item.title}</span>
+              </button>
+            ))}
+          </div>
+
+          {activeLink && (
+            <div className="rounded-lg border border-[#dbe4dc] bg-gradient-to-br from-white via-[#fcfdfb] to-[#f6f9f6] p-5 sm:p-6 shadow-[0_2px_4px_rgba(20,35,20,0.03)]">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-[#edf6ef] border border-[#cfdfd1] px-2.5 py-0.5 text-[11px] font-semibold text-[#1e5836]">
+                    <Landmark size={12} /> PMAY Sub-Tab Resource
+                  </span>
+                  <h3 className="mt-2 text-lg sm:text-xl font-bold text-[#1a2e20]">
+                    {activeLink.title}
+                  </h3>
+                  {activeLink.description && (
+                    <p className="mt-1 text-xs text-[#5e695d] max-w-2xl leading-relaxed">
+                      {activeLink.description}
+                    </p>
+                  )}
+                  <div className="mt-3 flex items-center gap-2 text-xs font-mono text-[#436449] break-all bg-[#f0f4ef] px-3 py-1.5 rounded-md border border-[#e1e9e0] w-fit">
+                    <Globe size={13} className="shrink-0 text-[#255e39]" />
+                    <a
+                      href={activeLink.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline truncate max-w-[400px]"
+                    >
+                      {activeLink.url}
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex sm:flex-col gap-2 shrink-0">
+                  <a
+                    href={activeLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#205c3c] px-4 text-xs font-medium text-white shadow-xs hover:bg-[#174b30] transition"
+                  >
+                    <ExternalLink size={14} /> Open PMAY Portal
+                  </a>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(activeLink.url)
+                      alert("PMAY URL copied to clipboard!")
+                    }}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-[#dfe4dd] bg-white px-3 text-xs font-medium text-[#465044] hover:bg-[#f6f8f5] transition"
+                  >
+                    <Copy size={13} /> Copy Link
+                  </button>
+                </div>
+              </div>
+
+              {/* Embedded Viewer Container */}
+              <div className="mt-6 border-t border-[#e8efe8] pt-5">
+                <p className="text-[11px] font-medium text-[#6c786a] mb-2 flex items-center justify-between">
+                  <span>Portal Preview & Access Frame</span>
+                  <span className="text-[10px] text-[#8e988c]">If the external portal prevents framing, click "Open PMAY Portal" above</span>
+                </p>
+                <div className="w-full h-[620px] rounded-lg border border-[#d8e2d8] overflow-hidden bg-white shadow-inner relative">
+                  <iframe
+                    src={activeLink.url}
+                    title={activeLink.title}
+                    className="w-full h-full border-0"
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

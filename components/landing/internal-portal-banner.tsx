@@ -32,7 +32,7 @@ export function InternalPortalBanner() {
               </div>
 
               <h2 className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                India Shelter Operations & Template Portal
+                India Shelter Operations Portal
               </h2>
 
               <p className="mt-2.5 text-xs sm:text-sm text-white/75 leading-relaxed max-w-2xl">
